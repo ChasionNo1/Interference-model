@@ -16,6 +16,8 @@ class Simulation:
         self.fig = plt.figure()
         self.offset = offset
         np.random.seed(seed)
+        self.inter_position = []
+        self.outer_position = []
 
     def plot_inter_and_outer_point(self):
         if self.shape == 'ellipse':
@@ -62,6 +64,8 @@ class Simulation:
 
             plt.scatter(point_x, point_y)
             plt.scatter(pm1, pm2)
+            self.inter_position = list(zip(point_x, point_y))
+            self.outer_position = list(zip(pm1, pm2))
             ax.add_patch(ell_inter)
             ax.add_patch(ell_outer)
             plt.axis('equal')
@@ -93,6 +97,8 @@ class Simulation:
 
             plt.scatter(point_x, point_y)
             plt.scatter(pm1, pm2)
+            self.inter_position = list(zip(point_x, point_y))
+            self.outer_position = list(zip(pm1, pm2))
             ax = self.fig.add_subplot(111)
             ax.add_patch(rec)
             ax.add_patch(rec2)
@@ -131,15 +137,19 @@ class Simulation:
                     pm2.append(point_y_outer[i])
             plt.scatter(point_x, point_y)
             plt.scatter(pm1, pm2)
-            ax = self.fig.add_subplot(111)
-            ax.add_patch(cir)
-            ax.add_patch(cir2)
-            plt.axis('equal')
-            plt.show()
+            self.inter_position = list(zip(point_x, point_y))
+            self.outer_position = list(zip(pm1, pm2))
+            # ax = self.fig.add_subplot(111)
+            # ax.add_patch(cir)
+            # ax.add_patch(cir2)
+            # plt.axis('equal')
+            # plt.show()
 
 
-pic = Simulation(5, 'circle', 20, 16, 5)
-pic.plot_inter_and_outer_point()
+if __name__ == '__main__':
+    pic = Simulation(5, 'circle', 20, 16, 5)
+    pic.plot_inter_and_outer_point()
+
 
 
 
