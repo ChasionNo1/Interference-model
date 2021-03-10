@@ -64,8 +64,12 @@ class Simulation:
 
             plt.scatter(point_x, point_y)
             plt.scatter(pm1, pm2)
-            self.inter_position = list(zip(point_x, point_y))
-            self.outer_position = list(zip(pm1, pm2))
+            point_x = np.array(point_x)[:, np.newaxis]
+            point_y = np.array(point_y)[:, np.newaxis]
+            pm1 = np.array(pm1)[:, np.newaxis]
+            pm2 = np.array(pm2)[:, np.newaxis]
+            self.inter_position = np.hstack([point_x, point_y])
+            self.outer_position = np.hstack([pm1, pm2])
             ax.add_patch(ell_inter)
             ax.add_patch(ell_outer)
             plt.axis('equal')
@@ -97,8 +101,12 @@ class Simulation:
 
             plt.scatter(point_x, point_y)
             plt.scatter(pm1, pm2)
-            self.inter_position = list(zip(point_x, point_y))
-            self.outer_position = list(zip(pm1, pm2))
+            point_x = np.array(point_x)[:, np.newaxis]
+            point_y = np.array(point_y)[:, np.newaxis]
+            pm1 = np.array(pm1)[:, np.newaxis]
+            pm2 = np.array(pm2)[:, np.newaxis]
+            self.inter_position = np.hstack([point_x, point_y])
+            self.outer_position = np.hstack([pm1, pm2])
             ax = self.fig.add_subplot(111)
             ax.add_patch(rec)
             ax.add_patch(rec2)
@@ -135,10 +143,14 @@ class Simulation:
                 if m1 < r_offset ** 2 and m2 > r**2:
                     pm1.append(point_x_outer[i])
                     pm2.append(point_y_outer[i])
-            plt.scatter(point_x, point_y)
-            plt.scatter(pm1, pm2)
-            self.inter_position = list(zip(point_x, point_y))
-            self.outer_position = list(zip(pm1, pm2))
+            # plt.scatter(point_x, point_y)
+            # plt.scatter(pm1, pm2)
+            point_x = np.array(point_x)[:, np.newaxis]
+            point_y = np.array(point_y)[:, np.newaxis]
+            pm1 = np.array(pm1)[:, np.newaxis]
+            pm2 = np.array(pm2)[:, np.newaxis]
+            self.inter_position = np.hstack([point_x, point_y])
+            self.outer_position = np.hstack([pm1, pm2])
             # ax = self.fig.add_subplot(111)
             # ax.add_patch(cir)
             # ax.add_patch(cir2)
