@@ -143,8 +143,8 @@ class Simulation:
                 if m1 < r_offset ** 2 and m2 > r**2:
                     pm1.append(point_x_outer[i])
                     pm2.append(point_y_outer[i])
-            # plt.scatter(point_x, point_y)
-            # plt.scatter(pm1, pm2)
+            plt.scatter(point_x, point_y)
+            plt.scatter(pm1, pm2)
             point_x = np.array(point_x)[:, np.newaxis]
             point_y = np.array(point_y)[:, np.newaxis]
             pm1 = np.array(pm1)[:, np.newaxis]
