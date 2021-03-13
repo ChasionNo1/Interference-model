@@ -38,6 +38,7 @@ def create_hyperedges(inx_list, dis_map, features):
            1、遍历整个inx_list, [ 0 15 17 13 12]
            2、分别计算每个顶点收到来自邻域的干扰总和，判断是否大于阈值
            3、外部干扰
+
            4、信道噪声干扰
      """
 
@@ -54,11 +55,11 @@ def create_hyperedges(inx_list, dis_map, features):
             dis_temp = dis_map[j]
             result = sum([i / j for i, j in zip(feat_temp, dis_temp)])
             interference.append(result)
-        print(interference)
+        # print(interference)
         a = np.array(interference)
-        # b = np.where(a > 5)[0]
-        # if b == 4:
-        #     hyperedges.append(inx_list[i])
+        b = np.where(a > 5)[0]
+        if len(b) == 4:
+            hyperedges.append(point)
     print(hyperedges)
 
 
