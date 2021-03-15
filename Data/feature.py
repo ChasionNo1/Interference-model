@@ -114,9 +114,12 @@ def cal_outer_jammers(point, jammers):
     return jammers_interference
 
 
-
 def noise():
     # 计算信道噪声干扰
+    pass
+
+
+def get_labels():
     pass
 
 
@@ -164,6 +167,7 @@ def create_feature():
     outer = cal_outer_jammers(point, jammers_data)
     # 将内部干扰和干扰机对每个顶点的干扰结果拼接在一起
     feats = np.c_[inner, outer]
+    # 加入标签：
     write_files(feats, './feats.content')
     write_files(hyperedges, './hyperedges.content')
 
