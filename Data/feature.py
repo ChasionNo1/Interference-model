@@ -51,7 +51,7 @@ def create_hyperedges(inx_list, dis_map, features):
         for j in range(len(point)):
             # 计算每个顶点受到其他顶点的干扰和，如果每个干扰和大于阈值，则建立超边
             temp = np.delete(point, j)
-            feat_temp = [features[x][6] for x in temp]
+            feat_temp = [features[x][3] for x in temp]
             dis_temp = dis_map[j]
             result = sum([i / j for i, j in zip(feat_temp, dis_temp)])
             interference.append(result)
@@ -60,22 +60,86 @@ def create_hyperedges(inx_list, dis_map, features):
         b = np.where(a > 5)[0]
         if len(b) == 4:
             hyperedges.append(point)
-    print(hyperedges)
+    # print(hyperedges)
+    return np.array(hyperedges)
+
+
+def cal_interference(e_data, dis):
+    # 计算两两顶点之间的干扰值
+    # 参数:干扰能力，两点的欧式距离
+    # 干扰值列表
+    interference_map = []
+    # 获取顶点干扰能力值
+    point_inter_value = [e_data[x][3] for x in range(len(e_data))]
+    # 获取顶点个数
+    for i in range(len(e_data)):
+        m = point_inter_value[i]
+        distance = np.delete(dis[i], i)
+        temp = [m / n for n in distance]
+        temp.insert(i, 0)
+        # 判断阈值，改为二进制形式
+        temp = np.array(temp)
+        index = np.where(temp > 1)[0]
+        one_hot = np.zeros(len(e_data))
+        one_hot[index] = 1
+        interference_map.append(one_hot.copy())
+
+    # print(interference_map[0])
+    return np.array(interference_map)
+
+
+def cal_outer_jammers(point, jammers):
+    # 计算外部干扰机的干扰值
+    # 外部干扰机的干扰值， 外部干扰机与各个顶点的距离
+    dis = []
+    jammers_interference = []
+    # 计算干扰机到各个顶点的距离
+    for i in range(len(point.outer_position)):
+        temp = euclidean_distances(point.inter_position, [point.outer_position[i]])
+        dis.append(temp.copy())
+    dis = np.array(dis).reshape(len(dis), -1)
+    # 计算干扰值
+    point_jammers_value = [jammers[x][3] for x in range(len(jammers))]
+    for i in range(len(jammers)):
+        m = point_jammers_value[i]
+        temp = [m / n for n in dis[i]]
+        # 这里同样转换为one-hot
+        temp = np.array(temp)
+        index = np.where(temp > 1)[0]
+        one_hot = np.zeros(dis.shape[1])
+        one_hot[index] = 1
+        jammers_interference.append(one_hot.copy())
+    jammers_interference = np.array(jammers_interference).T
+    # print(jammers_interference)
+    return jammers_interference
+
+
+
+def noise():
+    # 计算信道噪声干扰
+    pass
+
+
+def create_adj():
+    pass
 
 
 def create_feature():
     point = Simulation(5, 'circle', 20, 16, 5)
     point.plot_inter_and_outer_point()
-    data = []
+    # 用来存放环境信息
+    environment_data = []
+    jammers_data = []
     for i in range(len(point.inter_position)):
-        # id 属性 工作状态 等级 信道 坐标 干扰能力
-        temp = [i + 1, 0, np.random.randint(0, 3), np.random.randint(0, 9), np.random.randint(0, 9), point.inter_position[i], np.random.randint(1, 7)]
-        data.append(temp.copy())
+        # id 属性 坐标 干扰能力
+        temp = [i, 0, point.inter_position[i], np.random.randint(1, 7)]
+        environment_data.append(temp.copy())
 
     for j in range(len(point.outer_position)):
-        temp2 = [len(point.inter_position) + j + 1, 1, point.outer_position[j], np.random.randint(0, 5)]
-        data.append(temp2)
-    # print(data)
+        temp2 = [len(point.inter_position) + j, 1, point.outer_position[j], np.random.randint(5, 12)]
+        jammers_data.append(temp2)
+    # print(environment_data)
+
     point_x = point.inter_position[:, 0]
     point_y = point.inter_position[:, 1]
     dis_map = []
@@ -83,6 +147,7 @@ def create_feature():
     inx_dict = {j: i for i, j in enumerate(zip(point_x, point_y))}
     # print(inx_dict)
     # print(point.inter_position)
+
     for i in range(len(point.inter_position)):
         temp3 = euclidean_distances(point.inter_position, [point.inter_position[i]])
         dis_map.append(temp3.copy())
@@ -93,12 +158,14 @@ def create_feature():
     inx_list = inx.numpy().reshape(inx.shape[0], -1)
     k_dis = k_dis.numpy().reshape(k_dis.shape[0], -1)
     # 这里的ind_list其实就是k邻接的结果
-    # print(inx_list)
-    create_hyperedges(inx_list, k_dis, data)
-
-
-
+    hyperedges = create_hyperedges(inx_list, k_dis, environment_data)
     # plot(point_x, point_y)
+    inner = cal_interference(environment_data, dis_map)
+    outer = cal_outer_jammers(point, jammers_data)
+    # 将内部干扰和干扰机对每个顶点的干扰结果拼接在一起
+    feats = np.c_[inner, outer]
+    write_files(feats, './feats.content')
+    write_files(hyperedges, './hyperedges.content')
 
 
 if __name__ == '__main__':
