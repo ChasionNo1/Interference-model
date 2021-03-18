@@ -5,6 +5,7 @@ from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import euclidean_distances
 import torch
+import os
 """
 特征构造
 """
@@ -119,12 +120,34 @@ def noise():
     pass
 
 
-def get_labels():
-    pass
+def create_adj(num, hyperedges):
+    # 为每个顶点构造一个超边邻域：
+    # 将包含这个顶点的所有超边放在一个超边集里
+    # 如果顶点没有超边，如何处理？
+    # 用字典来存放顶点超边集，键是顶点编号，值是超边集
+    adj = {}
+    """
+    [[ 1  3 14  6 11]
+     [ 2  9 10 17 15]
+     [ 3  1 14  6 11]
+     [ 6 11 14  1  5]
+     [ 9  2 10 17  4]
+     [11  6 14  5  1]
+     [14  6 11  1  3]]
+    """
+    # 先对超边集进行去重和编码
+    # 可以先排序，再去重得
+    hyperedges = np.sort(hyperedges, axis=1)
+    hyperedges = np.unique(hyperedges, axis=0)
+    # print(hyperedges)
+    for i in range(num):
+        adj[i] = []
+        for j in range(hyperedges.shape[0]):
+            if hyperedges[j].__contains__(i):
+                adj[i].append(j)
 
-
-def create_adj():
-    pass
+    # print(adj)
+    return hyperedges, adj
 
 
 def create_feature():
@@ -167,9 +190,19 @@ def create_feature():
     outer = cal_outer_jammers(point, jammers_data)
     # 将内部干扰和干扰机对每个顶点的干扰结果拼接在一起
     feats = np.c_[inner, outer]
-    # 加入标签：
-    write_files(feats, './feats.content')
-    write_files(hyperedges, './hyperedges.content')
+    hyperedges, adj = create_adj(len(environment_data), hyperedges)
+    # 写入文件中
+    write_files(feats, 'datasets/feats.content')
+    write_files(hyperedges, 'datasets/hyperedges.content')
+    # 标签
+    sum_1 = inner.sum(axis=1)
+    index1 = np.where(sum_1 > 1)
+    one_hot = np.zeros(inner.shape[0])
+    one_hot[index1] = 1
+    sum_2 = outer.sum(axis=1)
+    index2 = np.where(sum_2 > 1)
+    one_hot[index2] = 1
+    write_files(one_hot, 'datasets/labels.content')
 
 
 if __name__ == '__main__':
