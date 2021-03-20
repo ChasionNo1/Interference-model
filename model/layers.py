@@ -86,6 +86,9 @@ class EdgeConv(nn.Module):
 class GraphConvolution(nn.Module):
     """
     gcn layer
+    这是一个仿照图卷积的超图卷积层
+    简单的图卷积层，先是对顶点特征进行线性，再过激活函数，再dropout，完成特征提取
+    然后再进行特征聚合
     """
     def __init__(self, **kwargs):
         # **的作用是将传入的字典进行unpack，然后将字典中的值作为关键词参数传入函数中。
@@ -98,16 +101,49 @@ class GraphConvolution(nn.Module):
         self.activation = kwargs['activation']
 
     def _region_aggregate(self, feats, edge_dict):
+        # N,d ---- >  N,d
+        # 这是对超图中的超边完成初步的特征提取，按照dim=0维度求平均，并堆叠起来
         N = feats.size()[0]
+        # edge_dict是顶点的超边集，里面的元素是顶点，将这个超边集里的顶点特征求平均，按列求平均，仍然是d维，只是将多个顶点的特征平均为一个
         pooled_feats = torch.stack([torch.mean(feats[edge_dict[i]], dim=0) for i in range(N)])
 
         return pooled_feats
 
     def forward(self, ids, feats, edge_dict, G, ite):
+        # N,d
+        # 特征是顶点特征，N是顶点个数，d是特征维数
         x = feats
+        # 经过全连接层后顶点特征维数发生了变化，N,dim_out
         x = self.dropout(self.activation(self.fc(x)))
+        # 特征聚合
         x = self._region_aggregate(x, edge_dict)
         return x
+
+
+class DHGLayer(GraphConvolution):
+    """
+    动态超图卷积层
+    """
+    def __init__(self, **kwargs):
+        super(DHGLayer, self).__init__()
+        # 超边集中顶点的采样个数
+        self.ks = kwargs['structured_neighbor']
+        # 聚类的个数
+        self.n_cluster = kwargs['n_cluster']
+        # 一个顶点的邻接超边的个数
+        self.n_center = kwargs['n_center']
+        # k邻近中取得顶点个数
+        self.kn = kwargs['nearest_neighbor']
+        # k均值聚类每个类别采样的顶点个数
+        self.kc = kwargs['cluster_neighbor']
+        # warm-up parameter 预热参数，如果没有预热，前几个训练步骤的性能将不稳定，因为在前几个步骤中，超图构造基于当前的特征图。
+
+
+
+
+
+
+
 
 
 
