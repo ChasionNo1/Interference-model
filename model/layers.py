@@ -1,6 +1,9 @@
 import torch
 from torch import nn
 import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics.pairwise import euclidean_distances
+from utils.layer_utils import sample_ids, sample_ids_v2, cos_dis
 """
 网络层
 """
@@ -137,6 +140,194 @@ class DHGLayer(GraphConvolution):
         # k均值聚类每个类别采样的顶点个数
         self.kc = kwargs['cluster_neighbor']
         # warm-up parameter 预热参数，如果没有预热，前几个训练步骤的性能将不稳定，因为在前几个步骤中，超图构造基于当前的特征图。
+        self.wu_knn = kwargs['wu_knn']
+        self.wu_kmeans = kwargs['wu_kmeans']
+        self.wu_struct = kwargs['wu_struct']
+        self.vc_sn = VertexConv(self.dim_in, self.ks + self.kn)
+        self.vc_s = VertexConv(self.dim_inm, self.ks)
+        self.vc_n = VertexConv(self.dim_in, self.kn)
+        self.vc_c = VertexConv(self.dim_in, self.kc)
+        self.ec = EdgeConv(self.dim_in, hidden=self.dim_in/4)
+        self.kmeans = None
+        self.structure = None
+
+    def _vertex_conv(self, func, x):
+        return func(x)
+
+    def _structure_select(self, ids, feats, edge_dict):
+        """
+        这部分是从超边集中采样ks个点，然后将这个些点组成一个特征矩阵
+        :param ids: 在训练/有效/测试期间选择的索引，
+        :param feats: 所有顶点组成的特征矩阵
+        :param edge_dict:
+        :return:邻域图
+        """
+        if self.structure is None:
+            # feats: _N, d,  _N是顶点个数，
+            _N = feats.size()[0]
+            # 对所有顶点的超边集进行采样，采样ks个点
+            idx = torch.LongTensor([sample_ids(edge_dict[i], self.ks) for i in range(_N)])
+            self.structure = idx
+        else:
+            idx = self.structure
+        # 采样过的邻域图，再进行，训练、测试等数据集的划分索引
+        idx = idx[ids]
+        # 得到划分的顶点个数
+        N = idx.size()[0]
+        # 特征维数
+        d = feats.size(1)
+        # reshape成一个N,ks,d的矩阵
+        region_feats = feats[idx.view(-1)].view(N, self.ks, d)
+        return region_feats
+
+    """
+    knn和kmeans
+    这部分在超图构造的时候使用，但是我的数据已经构造完毕了
+    """
+
+    def _nearest_select(self, ids, feats):
+        """
+        :param ids: indices selected during train/valid/test, torch.LongTensor
+        :param feats:
+        :return: mapped nearest neighbors    最近邻域图
+        """
+        # 计算(N, d)N个超边的余弦距离
+        dis = cos_dis(feats)
+        # 沿着dim=1维度给出dis中kn个最大值，返回一个元组，values，indices
+        _, idx = torch.topk(dis, self.kn, dim=1)
+        # 得到最大的kn个元素索引，聚合这个kn个超边的特征，组成N，kn，d的特征矩阵
+        idx = idx[ids]
+        N = len(idx)
+        d = feats.size(1)
+        nearest_feature = feats[idx.view(-1)].view(N, self.kn, d)  # (N, kn, d)
+        return nearest_feature
+
+    def _cluster_select(self, ids, feats):
+        """
+        compute k-means centers and cluster labels of each node
+        return top #n_cluster nearest cluster transformed features
+        :param ids: indices selected during train/valid/test, torch.LongTensor
+        :param feats:
+        :return: top #n_cluster nearest cluster mapped features
+        """
+        if self.kmeans is None:
+            _N = feats.size(0)
+            # detach():阻止反向传播的，cpu():将数据复制到cpu中，将tensor转换为numpy数组
+            np_feats = feats.detach().cpu().numpy()
+            # 生成的聚类数，random_state：整形或 numpy.RandomState 类型，可选
+            # 用于初始化质心的生成器（generator）。如果值为一个整数，则确定一个seed。此参数默认值为numpy的随机数生成器。
+            # n_jobs：整形数。　指定计算所用的进程数。内部原理是同时进行n_init指定次数的计算。
+            # （１）若值为 -1，则用所有的CPU进行运算。若值为1，则不进行并行运算，这样的话方便调试。
+            kmeans = KMeans(n_clusters=self.n_cluster, random_state=0, n_jobs=-1).fit(np_feats)
+            # kmeans的属性，聚类的中心坐标向量，[n_clusters, n_features] (聚类中心的坐标)
+            centers = kmeans.cluster_centers_
+            # 特征矩阵与聚类中心的欧式距离，
+            dis = euclidean_distances(np_feats, centers)
+            # 得到self.n_center个最大值
+            _, cluster_center_dict = torch.topk(torch.Tensor(dis), self.n_center, largest=False)
+            cluster_center_dict = cluster_center_dict.numpy()
+            # 每个顶点的标签
+            point_labels = kmeans.labels_
+            # 顶点在哪一个聚类里
+            point_in_which_cluster = [np.where(point_labels == i)[0] for i in range(self.n_cluster)]
+            # 采样点的kc个临近聚类团体最为它的超边
+            idx = torch.LongTensor([[sample_ids_v2(point_in_which_cluster[cluster_center_dict[point][i]], self.kc)
+                                     for i in range(self.n_center)] for point in range(_N)])  # (_N, n_center, kc)
+            self.kmeans = idx
+        else:
+            idx = self.kmeans
+
+        idx = idx[ids]
+        N = idx.size(0)
+        d = feats.size(1)
+        # 融合聚类特征
+        cluster_feats = feats[idx.view(-1)].view(N, self.n_center, self.kc, d)
+
+        return cluster_feats  # (N, n_center, kc, d)
+
+    def _edge_conv(self, x):
+        return self.ec(x)
+
+    def _fc(self, x):
+        return self.activation(self.fc(self.dropoutx))
+
+    def forward(self, ids, feats, edge_dict, G, ite):
+        """
+        重写函数
+        输入顶点采样特征xu，超图结构G
+        伪代码:
+        建立一个空列表存放超边
+        对edge_list进行遍历，对每个顶点的超边集进行：
+            顶点采样
+            顶点卷积
+            添加顶点卷积结果到超边list中
+        （顶点卷积，将超边集里的各个顶点特征融合为超边特征，一个顶点包含在多个超边中，会得到多个超边特征）
+        然后将每个顶点的超边特征堆叠起来
+        进行超边卷积
+        过非线性，融合为顶点的新特征
+
+        :param ids:在训练/有效/测试期间选择的索引
+        :param feats:
+        :param edge_dict:
+        :param G:
+        :param ite:
+        :return:采样yu
+        """
+        hyperedges = []
+        # 带有预热参数，
+        if ite >= self.wu_kmeans:
+            c_feat = self._cluster_select(ids, feats)
+            for c_idx in range(c_feat.size(1)):
+                xc = self._vertex_conv(self.vc_c, c_feat[:, c_idx, :, :])
+                xc = xc.view(len(ids), 1, feats.size(1))
+                hyperedges.append(xc)
+
+        if ite >= self.wu_knn:
+            n_feat = self._nearest_select(ids, feats)
+            xn = self._vertex_conv(self.vc_n, n_feat)
+            xn = xn.view(len(ids), 1, feats.size(1))
+            hyperedges.append(xn)
+
+        if ite >= self.wu_struct:
+            s_feat = self._structure_select(ids, feats, edge_dict)
+            xs = self._vertex_conv(self.vc_s, s_feat)
+            xs = xs.view(len(ids), 1, feats.size(1))
+            hyperedges.append(xs)
+
+        # 顶点卷积完成，开始合并超边特征进行超边卷积
+        x = torch.cat(hyperedges, dim=1)
+        x = self._edge_conv(x)
+        x = self._fc(x)
+        return x
+
+
+class HGNN_conv(nn.Module):
+    """
+    a HGNN layer
+    """
+    def __init__(self, **kwargs):
+        super(HGNN_conv, self).__init__()
+
+        self.dim_in = kwargs['dim_in']
+        self.dim_out = kwargs['dim_out']
+        self.fc = nn.Linear(self.dim_in, self.dim_out, bias=kwargs['has-bias'])
+        self.dropout = nn.Dropout(p=0.5)
+        self.activation = kwargs['activation']
+
+    def forward(self, ids, feats, edge_dict, G, ite):
+        x = feats
+        x = self.activation(self.fc(x))
+        x = G.matmul(x)
+        x = self.dropout(x)
+        return x
+
+
+
+
+
+
+
+
 
 
 

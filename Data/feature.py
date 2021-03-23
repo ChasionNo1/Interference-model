@@ -203,6 +203,7 @@ def create_feature():
     index2 = np.where(sum_2 > 1)
     one_hot[index2] = 1
     write_files(one_hot, 'datasets/labels.content')
+    write_files(adj, 'datasets/adj.content')
 
 
 if __name__ == '__main__':
