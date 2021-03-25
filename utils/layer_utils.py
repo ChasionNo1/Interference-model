@@ -30,7 +30,7 @@ def sample_ids(ids, k):
     df = pd.DataFrame(ids)
     sampled_ids = df.sample(k - 1, replace=True).values
     sampled_ids = sampled_ids.flatten().tolist()
-    sampled_ids.append(ids[-1])  # must sample the centroid node itself
+    sampled_ids.append(ids[0])  # must sample the centroid node itself
     return sampled_ids
 
 
