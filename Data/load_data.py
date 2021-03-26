@@ -20,7 +20,7 @@ def load_data():
 
     # print(objects)
     adj, edge_dict, feats, labels = tuple(objects)
-    # print(adj)
+    adj = [adj[i] for i in range(len(adj))]
     # print(feats)
     # print(labels)
     '''
@@ -29,9 +29,11 @@ def load_data():
     '''
     # feats = sp.csc_matrix(feats, dtype=np.float32)
     # print(feats)
-    idx_train = range(8)
-    idx_val = range(9, 15)
-    idx_test = range(15, 20)
+    idx_train = [i for i in range(9)]
+    idx_val = [i for i in range(9, 15)]
+    idx_test = [i for i in range(15, 20)]
+    # print(idx_train)
+    # print(labels[:9])
 
     return feats, adj, labels, idx_train, idx_val, idx_test, edge_dict
 

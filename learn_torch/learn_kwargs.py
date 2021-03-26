@@ -4,7 +4,7 @@
 
 
 class Student:
-    def __int__(self, **kwargs):
+    def __init__(self, **kwargs):
         self.name = kwargs['name']
         self.age = kwargs['age']
         self.work = kwargs['work']
@@ -13,8 +13,17 @@ class Student:
         print(self.name + str(self.age) + self.work)
 
 
-stu = Student()
-stu.name = 'cairen'
-stu.age = 18
-stu.work = 'stu'
+class M(Student):
+    def __init__(self, **kwargs):
+        super(M, self).__init__(**kwargs)
+        self.time = kwargs['time']
+
+    def show2(self):
+        print(self.name + self.time)
+
+
+stu = Student(name='cairen', age=18, work='stu')
 stu.show()
+
+m = M(name='a', age=13, work='ggg', time='12:00')
+m.show2()

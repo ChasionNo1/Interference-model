@@ -78,8 +78,6 @@ def create_hyperedges(feats):
     一个是超边集中顶点个数的统一
     一个是顶点超边集个数的统一
     """
-
-
     hyperedges = []
     # N个顶点
     N = feats.shape[0]
@@ -93,7 +91,7 @@ def create_hyperedges(feats):
     # 对不满足超边大小的超边进行填充
     edge_dict = hyperedges
     print(edge_dict)
-    hyperedges = [sample_ids(hyperedges[i], 5) for i in range(N)]
+    hyperedges = [sample_ids(hyperedges[i], 10) for i in range(N)]
     print(hyperedges)
     return hyperedges, edge_dict
 
@@ -153,6 +151,11 @@ def noise():
     pass
 
 
+def get_random_num(a, num, seed):
+    np.random.seed(seed)
+    return [np.random.randint(a) for _ in range(num)]
+
+
 def create_adj(hyperedges):
     # 为每个顶点构造一个超边邻域：
     # 将包含这个顶点的所有超边放在一个超边集里
@@ -179,14 +182,11 @@ def create_adj(hyperedges):
             if i in hyperedges[j]:
                 adj[i].append(hyperedges[j].copy())
     # 需要对顶点的超边集大小统一
-    for u in adj:
-        l = len(adj[u])
-        # print(l)
-        print('---------')
-        for i in range(5-l):
-            idx = np.random.randint(l)
-            print(idx)
-            adj[u].append(adj[u][idx].copy())
+    for i in range(len(adj)):
+        l = len(adj[i])
+        r = get_random_num(l, 6-l, i)
+        temp = [adj[i][k] for k in r]
+        adj[i] += temp
     # for u in adj:
     #     if edge_size < len(adj[u]):
     #         edge_size = len(adj[u])

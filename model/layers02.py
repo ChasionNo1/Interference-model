@@ -109,7 +109,7 @@ class GraphConvolution(nn.Module):
 
         return pooled_feats
 
-    def forward(self, ids, feats, edge_dict):
+    def forward(self, ids, feats, edge_dict, adj):
         # N,d
         # 特征是顶点特征，N是顶点个数，d是特征维数
         x = feats
@@ -147,12 +147,12 @@ class DHGLayer(GraphConvolution):
 
     """
     def __init__(self, **kwargs):
-        super(DHGLayer, self).__init__()
+        super(DHGLayer, self).__init__(**kwargs)
         # 这里不需要再构造超边，因此不需要采样点，聚类，knn
         # 加入预热参数
         # 没有采样，所以没有structure,也没有采用kmeans
-        self.wu_knn = kwargs['wu_knn']
         self.ec = EdgeConv(self.dim_in, hidden=self.dim_in//4)
+        self.vc = EdgeConv(self.dim_in, 6)
 
     def _vertex_conv(self, func, x):
         return func(x)
@@ -163,65 +163,43 @@ class DHGLayer(GraphConvolution):
     def _fc(self, x):
         return self.activation(self.fc(self.dropout(x)))
 
-    def forward(self, ids, feats, adj):
-        # 重构这部分代码
-        # ite是epoch回合
-        # edge_dict是adj
-        # 预热：在epoch开始，是knn得到每个顶点的k个邻接，然后再进行顶点卷积，3
-        hyperedge_feats = []
-        # 遍历每个顶点的超边集
+    def forward(self, ids, feats, edge_dict, adj):
+        """
+
+        :param ids: 训练或者验证、测试的索引列表
+        :param feats: N,d 特征
+        :param adj: N个顶点的超边集
+        :return:
+        """
+        hyperedges_feats = []
         adj = adj[ids]
-        """
-        edge_dict:
-        {0: [[0, 13, 15, 17, 21], [13, 0, 21, 21, 21], [15, 0, 17, 21, 21], [17, 0, 15, 21, 21], [21, 21, 21, 21, 21]], 
-        1: [[1, 3, 6, 11, 14], [3, 1, 6, 11, 14], [6, 1, 3, 5, 11, 14], [11, 1, 3, 5, 6, 14], [14, 1, 3, 6, 11]], 
-        2: [[2, 9, 10, 21, 21], [9, 2, 10, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        3: [[1, 3, 6, 11, 14], [3, 1, 6, 11, 14], [6, 1, 3, 5, 11, 14], [11, 1, 3, 5, 6, 14], [14, 1, 3, 6, 11]], 
-        4: [[4, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        5: [[5, 21, 21, 21, 21], [6, 1, 3, 5, 11, 14], [11, 1, 3, 5, 6, 14], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        6: [[1, 3, 6, 11, 14], [3, 1, 6, 11, 14], [6, 1, 3, 5, 11, 14], [11, 1, 3, 5, 6, 14], [14, 1, 3, 6, 11]], 
-        7: [[7, 19, 21, 21, 21], [19, 7, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        8: [[8, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        9: [[2, 9, 10, 21, 21], [9, 2, 10, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        10: [[2, 9, 10, 21, 21], [9, 2, 10, 21, 21], [10, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        11: [[1, 3, 6, 11, 14], [3, 1, 6, 11, 14], [6, 1, 3, 5, 11, 14], [11, 1, 3, 5, 6, 14], [14, 1, 3, 6, 11]], 
-        12: [[12, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        13: [[0, 13, 15, 17, 21], [13, 0, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        14: [[1, 3, 6, 11, 14], [3, 1, 6, 11, 14], [6, 1, 3, 5, 11, 14], [11, 1, 3, 5, 6, 14], [14, 1, 3, 6, 11]], 
-        15: [[0, 13, 15, 17, 21], [15, 0, 17, 21, 21], [17, 0, 15, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        16: [[16, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        17: [[0, 13, 15, 17, 21], [15, 0, 17, 21, 21], [17, 0, 15, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        18: [[18, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]], 
-        19: [[7, 19, 21, 21, 21], [19, 7, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21], [21, 21, 21, 21, 21]]}
-
-        """
-        # 顶点卷积 N,k,d --- >  N, 1, d
-        # 取每个顶点的超边集
-        feats = np.array(feats)
-        for e in adj:
-            # 取每个超边，进行顶点卷积
-            # 对特征进行reshape
-
-            N = len(adj[e])
-            M = len((adj[e][0]))
-            # print(N)
-            adj[e] = np.array(adj[e]).reshape(-1)
-            # print(adj[e])
-            temp = [feats[i] for i in adj[e]]
-            # temp = feats[adj[e]].reshape(1, N, feats.shape[1])
-            temp = np.array(temp)
-            temp = temp.reshape(N, M, feats.shape[1])
-            temp = torch.Tensor(temp)
-            # 得到是5个超边的特征 N, d
-            conv_result = VertexConv(feats.shape[1], M)
+        N = adj.size(0)
+        s = adj.size(1)
+        k = adj.size(2)
+        d = feats.size(1)
+        reshape_feats = feats[adj.view(-1)].view(N, s, k, d)
+        # print(reshape_feats.size())
+        for i in range(reshape_feats.size(1)):
+            conv_result = self._vertex_conv(self.vc, reshape_feats[:, i, :, :])
+            conv_result = conv_result.view(len(ids), 1, feats.size(1))
+            hyperedges_feats.append(conv_result)
+        x = torch.cat(hyperedges_feats, dim=1)
+        x = self._edge_conv(x)
+        x = self._fc(x)
+        print('output', x)
+        return x
 
 
 if __name__ == '__main__':
     feats, adj, labels, idx_train, idx_val, idx_test, edge_dict = load_data()
     feats = torch.Tensor(feats)
+    adj = torch.LongTensor(adj)
     a = GraphConvolution(dim_in=28, dim_out=28, has_bias=True, activation=nn.ReLU())
-    x = a.forward(idx_train, feats, edge_dict)
-    print(x)
+    # 图卷积作为输入层
+    x = a.forward(idx_train, feats, edge_dict, adj)
+    d = DHGLayer(dim_in=28, dim_out=2, has_bias=True, activation=nn.Sigmoid())
+    d.forward(idx_train, x, edge_dict, adj)
+
 
 
 
