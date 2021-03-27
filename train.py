@@ -8,6 +8,7 @@ from torch import nn
 import torch.optim as optim
 import numpy as np
 from model.models import DHGNN
+from matplotlib.pylab import plt
 
 
 def setup_seed(seed):
@@ -50,6 +51,7 @@ def train(model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, o
     acc_epoch = 0
     loss_epoch = 0
 
+
     for epoch in range(num_epoches):
 
         print('-' * 40)
@@ -76,6 +78,7 @@ def train(model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, o
                 output = model(ids=idx, feats=feats, edge_dict=edge_dict, adj=adj)
                 # LOSS
                 loss = criterion(output, labels[idx])
+
                 _, preds = torch.max(output, 1)
 
                 if phase == 'train':
@@ -88,7 +91,13 @@ def train(model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, o
 
             epoch_loss = running_loss / len(idx)
             epoch_acc = running_corrects.double() / len(idx)
+            if phase == 'train':
+                train_loss_list.append(epoch_loss.detach().numpy())
+                train_acc_list.append(epoch_acc.detach().numpy())
 
+            if phase == 'val':
+                val_loss_list.append(epoch_loss.detach().numpy())
+                val_acc_list.append(epoch_acc.detach().numpy())
             # if epoch % print_freq == 0:
             print(f'{phase} loss: {epoch_loss:.4f} acc: {epoch_acc:.4f}')
 
@@ -178,7 +187,7 @@ def train_and_test_model():
     optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.005, eps=1e-20)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[200], gamma=0.5)
     criterion = torch.nn.CrossEntropyLoss()
-    epoch_num = 20
+    epoch_num = 100
     # model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, optimizer, scheduler, device, num_epoches=25, print_freq=500
     model_wts_best_val_acc, model_wts_lowest_val_loss = train(model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, optimizer, scheduler, device, epoch_num)
 
@@ -190,7 +199,18 @@ def train_and_test_model():
 
 if __name__ == '__main__':
     seed_num = 1000
+    train_loss_list = []
+    train_acc_list = []
+    val_loss_list = []
+    val_acc_list = []
+
     train_and_test_model()
+
+    plt.plot(train_loss_list)
+    plt.plot(train_acc_list)
+    plt.plot(val_loss_list)
+    plt.plot(val_acc_list)
+    plt.show()
 
 
 
