@@ -119,7 +119,7 @@ class Simulation:
             r_offset = r + self.offset
             cir = Circle(xy=(r_offset, r_offset), radius=self.width/2, facecolor='none', edgecolor='black', linewidth=1, linestyle='solid')
             cir2 = Circle(xy=(r_offset, r_offset), radius=r_offset, facecolor='none', edgecolor='red', linewidth=1, linestyle='solid')
-            point_x = self.width * np.random.random(20) + self.offset
+            point_x = self.width * np.random.random(80) + self.offset
             delta = [math.sqrt(r**2 - (x - r_offset) ** 2) for x in point_x]
             y_delta1 = [r + x for x in delta]
             y_delta2 = [r - x for x in delta]
@@ -133,8 +133,8 @@ class Simulation:
             """
             生成干扰顶点
             """
-            point_x_outer = 2 * r_offset * np.random.random(20)
-            point_y_outer = 2 * r_offset * np.random.random(20)
+            point_x_outer = 2 * r_offset * np.random.random(30)
+            point_y_outer = 2 * r_offset * np.random.random(30)
             pm1 = []
             pm2 = []
             for i in range(len(point_y_outer)):
@@ -159,7 +159,7 @@ class Simulation:
 
 
 if __name__ == '__main__':
-    pic = Simulation(5, 'circle', 20, 16, 5)
+    pic = Simulation(1000, 'circle', 40, 30, 8)
     pic.plot_inter_and_outer_point()
 
 

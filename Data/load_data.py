@@ -28,13 +28,13 @@ def load_data():
     如何确定数据集的划分问题？
     '''
     # feats = sp.csc_matrix(feats, dtype=np.float32)
-    # print(feats)
-    idx_train = [i for i in range(9)]
-    idx_val = [i for i in range(9, 15)]
-    idx_test = [i for i in range(15, 20)]
+    # print(adj)
+    idx_train = [i for i in range(40)]
+    idx_val = [i for i in range(40, 65)]
+    idx_test = [i for i in range(65, 80)]
     # print(idx_train)
     # print(labels[:9])
-
+    # adj = np.array(adj)
     return feats, adj, labels, idx_train, idx_val, idx_test, edge_dict
 
 

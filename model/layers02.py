@@ -152,7 +152,7 @@ class DHGLayer(GraphConvolution):
         # 加入预热参数
         # 没有采样，所以没有structure,也没有采用kmeans
         self.ec = EdgeConv(self.dim_in, hidden=self.dim_in//4)
-        self.vc = EdgeConv(self.dim_in, 6)
+        self.vc = EdgeConv(self.dim_in, 9)
 
     def _vertex_conv(self, func, x):
         return func(x)
@@ -186,7 +186,7 @@ class DHGLayer(GraphConvolution):
         x = torch.cat(hyperedges_feats, dim=1)
         x = self._edge_conv(x)
         x = self._fc(x)
-        print('output', x)
+        # print('output', x)
         return x
 
 
@@ -194,10 +194,10 @@ if __name__ == '__main__':
     feats, adj, labels, idx_train, idx_val, idx_test, edge_dict = load_data()
     feats = torch.Tensor(feats)
     adj = torch.LongTensor(adj)
-    a = GraphConvolution(dim_in=28, dim_out=28, has_bias=True, activation=nn.ReLU())
+    a = GraphConvolution(dim_in=feats.size()[1], dim_out=feats.size()[1], has_bias=True, activation=nn.ReLU())
     # 图卷积作为输入层
     x = a.forward(idx_train, feats, edge_dict, adj)
-    d = DHGLayer(dim_in=28, dim_out=2, has_bias=True, activation=nn.Sigmoid())
+    d = DHGLayer(dim_in=feats.size()[1], dim_out=2, has_bias=True, activation=nn.Sigmoid())
     d.forward(idx_train, x, edge_dict, adj)
 
 

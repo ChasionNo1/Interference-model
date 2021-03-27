@@ -90,9 +90,9 @@ def create_hyperedges(feats):
         hyperedges.append(temp.copy())
     # 对不满足超边大小的超边进行填充
     edge_dict = hyperedges
-    print(edge_dict)
-    hyperedges = [sample_ids(hyperedges[i], 10) for i in range(N)]
-    print(hyperedges)
+    # print(edge_dict)
+    hyperedges = [sample_ids(hyperedges[i], 15) for i in range(N)]
+    # print(hyperedges)
     return hyperedges, edge_dict
 
 
@@ -184,7 +184,7 @@ def create_adj(hyperedges):
     # 需要对顶点的超边集大小统一
     for i in range(len(adj)):
         l = len(adj[i])
-        r = get_random_num(l, 6-l, i)
+        r = get_random_num(l, 9-l, i)
         temp = [adj[i][k] for k in r]
         adj[i] += temp
     # for u in adj:
@@ -193,12 +193,12 @@ def create_adj(hyperedges):
     # supp = [len(adj)] * len(adj[0][0])
     # for u in adj:
     #     adj[u] = adj[u] + [supp] * (edge_size - len(adj[u]))
-    print(adj)
+    # print(adj)
     return hyperedges, adj
 
 
 def create_feature():
-    point = Simulation(5, 'circle', 20, 16, 5)
+    point = Simulation(5, 'circle', 30, 20, 6)
     point.plot_inter_and_outer_point()
     # 用来存放环境信息
     environment_data = []

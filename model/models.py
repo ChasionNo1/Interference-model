@@ -20,13 +20,13 @@ class DHGNN(nn.Module):
             dim_out=self.dims_out[0],
             dropout_rate=kwargs['dropout_rate'],
             activation=self.activations[0],
-            has_bias=kwargs['has_bias'])
+            has_bias=kwargs['has_bias'])]
             + [DHGLayer(
             dim_in=self.dims_in[i],
             dim_out=self.dims_out[i],
             dropout_rate=kwargs['dropout_rate'],
             activation=self.activations[i],
-            has_bias=kwargs['has_bias'])] for i in range(1, self.n_layers)])
+            has_bias=kwargs['has_bias']) for i in range(1, self.n_layers)] )
 
     def forward(self, **kwargs):
         ids = kwargs['ids']
