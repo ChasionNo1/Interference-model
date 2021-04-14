@@ -66,21 +66,24 @@ class DHGNN_v3(nn.Module):
 
         self.dim_feats = kwargs['dim_feats']
         self.dims_out = [self.dim_feats, 2]
-        self.nearest_neighbor = 40
-        self.cluster_neighbor = 10
-        self.structured_neighbor = 40
-        self.n_cluster = 20
+        self.nearest_neighbor = 1
+        self.cluster_neighbor = 1
+        self.structured_neighbor = 2
+        self.n_cluster = 3
         self.n_center = 1
         self.wu_knn = 0
-        self.wu_kmeans = 5
-        self.wu_struct = 5
+        self.wu_kmeans = 10
+        self.wu_struct = 10
         self.activation = nn.ModuleList([nn.ReLU()] + [nn.Sigmoid()])
-        self.gcs = nn.ModuleList([GraphConvolution(
+        '''
+        [GraphConvolution(
             dim_in=self.dim_feats,
             dim_out=self.dims_out[0],
             activation=self.activation[0]
         )]
-        + [DHGLayer(
+        + 
+        '''
+        self.gcs = nn.ModuleList([DHGLayer(
             dim_in=self.dim_feats,
             dim_out=self.dims_out[1],
             nearest_neighbor=self.nearest_neighbor,
@@ -97,8 +100,8 @@ class DHGNN_v3(nn.Module):
     def forward(self, ids, feats, edge_dict, epo):
 
         x = feats
-        x = self.gcs[0](x, edge_dict)
-        x = self.gcs[1](ids, x, edge_dict, epo)
+        # x = self.gcs[0](x, edge_dict)
+        x = self.gcs[0](ids, x, edge_dict, epo)
 
         return x
 

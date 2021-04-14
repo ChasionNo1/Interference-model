@@ -7,7 +7,7 @@
 import torch
 from torch import nn
 import numpy as np
-from Data.load_data import load_data
+from communication_model.load_data import load_data
 from utils.layer_utils import cos_dis, sample_ids_v2, sample_ids
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import euclidean_distances
@@ -314,7 +314,7 @@ class DHGLayer(nn.Module):
 
 
 if __name__ == '__main__':
-    feats, adj, labels, idx_train, idx_val, idx_test, edge_dict = load_data()
+    feats, labels, idx_train, idx_val, idx_test, edge_dict = load_data()
     feats = torch.Tensor(feats)
     d = feats.size()[1]
     # a = Attention(dim_in=n)

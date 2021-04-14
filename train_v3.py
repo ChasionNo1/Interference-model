@@ -8,7 +8,7 @@ import torch
 import copy
 import time
 import random
-from Data.load_data import load_data
+from communication_model.load_data import load_data
 from torch import nn
 import torch.optim as optim
 import numpy as np
@@ -170,12 +170,11 @@ def train_and_test_model():
     # 使用cpu
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # load_data
-    feats, adj, labels, idx_train, idx_val, idx_test, edge_dict = load_data()
+    feats, labels, idx_train, idx_val, idx_test, edge_dict = load_data()
     feats = torch.Tensor(feats).to(device)
     one_hot = np.eye(len(labels), 2)
     labels = one_hot[labels]
     labels = torch.Tensor(labels).float().to(device)
-    adj = torch.LongTensor(adj)
     model = DHGNN_v3(
         dim_feats=feats.size(1)
     )
@@ -187,10 +186,10 @@ def train_and_test_model():
         if 'bias' in key:
             state_dict[key] = state_dict[key].zero_()
 
-    optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.05, eps=1e-20)
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.005, eps=1e-20)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[200], gamma=0.5)
     criterion = torch.nn.BCELoss()
-    epoch_num = 30
+    epoch_num = 350
     # model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, optimizer, scheduler, device, num_epoches=25, print_freq=500
     model_wts_best_val_acc, model_wts_lowest_val_loss = train(model, feats, labels, idx_train, idx_val, edge_dict, criterion, optimizer, scheduler, device, epoch_num)
 
@@ -201,7 +200,7 @@ def train_and_test_model():
 
 
 if __name__ == '__main__':
-    seed_num = 2000
+    seed_num = 100
     train_loss_list = []
     train_acc_list = []
     val_loss_list = []

@@ -6,6 +6,7 @@
 import numpy as np
 from Data.simulation import Simulation
 from sklearn.metrics.pairwise import euclidean_distances
+import pickle as plk
 C = 3.0*100000000
 
 
@@ -29,7 +30,7 @@ class Radio:
 
         """
         super(Radio, self).__init__()
-        self.point = Simulation(10, 'circle', 20, 20, 100)
+        self.point = Simulation(10, 'circle', 100, 100, 200)
         self.point.plot_inter_and_outer_point()
         self.num = len(self.point.inter_position)
         self.f = [10, 20, 30, 40, 50, 60, 70, 80, 110, 150, 200, 230, 270, 350, 400]
@@ -70,9 +71,9 @@ class Radio:
             天线增益：     10dB
         :return:
         """
-        jmf = [60, 150, 260, 400]
-        jmbw = [30, 40, 50, 60]
-        jmsp = [10, 10, 15, 20]
+        jmf = [40, 80, 150, 200, 260, 320, 400]
+        jmbw = [30, 30, 40, 40,  50, 60, 80]
+        jmsp = [22, 30, 30, 30, 30, 30, 30]
         # jmdb = 10
         jmf_idx = np.random.randint(len(jmf), size=(len(self.point.outer_position), ))
         jmf_np = np.array(jmf)[jmf_idx]
@@ -160,6 +161,7 @@ class Radio:
                 # 如果没有收到其他电台的信号，则不受干扰
                 communication.append([])
                 success.append([])
+                hyper_idx.append([i])
 
         # 计算噪声功率
         KTB = -114 + 10 * np.log10(bw)
@@ -169,7 +171,12 @@ class Radio:
         # print(pb)
         # print(success)
         # print(communication)
-        return rp_list, pb, success, communication
+        # print(len(hyper_idx))
+        print(hyper_idx)
+        for i in range(self.num):
+            hyper_idx[i].insert(0, i)
+        print(hyper_idx)
+        return rp_list, pb, success, communication, hyper_idx
 
     def SNR(self, communication, success, rp, jm_set, jmrp, pb):
         # 先将dBm转换为w进行计算
@@ -204,27 +211,108 @@ class Radio:
                 else:
                     label.append(1)
 
-        # label = np.array(label)
-        # count = np.where(label == 1)
+        label = np.array(label)
+        count = np.where(label == 1)
         # print(len(count[0]))
         return label
+
+    def one_hot(self, data):
+        """
+        one-hot编码
+        :param data:
+        :return:
+        """
+
+        N = data.shape[0]
+        max_idx = int(np.max(data))
+        # data = data.tolist()
+        one_hot = np.zeros(shape=(N, max_idx+1))
+        for i in range(N):
+            one_hot[i][int(data[i])] = 1
+        return one_hot
+
+    def dec2bin(self):
+        """
+        将十进制数转换为二进制
+        :return:
+        """
+        position = self.point.inter_position
+        position = position.tolist()
+        p_one_hot = []
+        # print(position)
+        for i in range(self.num):
+            p_one_hot.append(list(bin(int((position[i][0]*1000)))[2:]) + list(bin(int(position[i][1]))[2:]))
+        for i in range(self.num):
+            p_one_hot[i] = [int(x) for x in p_one_hot[i]]
+        return np.array(p_one_hot)
+
+    def feature(self, index_f, bw_index, sp_index, jm_set):
+        """
+        特征构造部分
+        :return:
+        """
+        f_one_hot = self.one_hot(index_f)
+        bw_one_hot = self.one_hot(bw_index)
+        sp_one_hot = self.one_hot(sp_index)
+        pos_one_hot = self.dec2bin()
+        jm_one_hot = []
+        for i in range(self.num):
+            if len(jm_set) == 0:
+                jm_one_hot.append([0, 0, 0, 0])
+            else:
+                idx = np.zeros(shape=(4, ), dtype='int32')
+                idx[jm_set[i]] = 1
+                jm_one_hot.append(idx.tolist().copy())
+        feats = np.hstack([f_one_hot, bw_one_hot, sp_one_hot, pos_one_hot, jm_one_hot])
+        # (100, 52)
+        # print(feats.shape)
+        return feats
+
+    def get_index(self, aim, value):
+        """
+        坐标转换
+        :param aim:
+        :param value:
+        :return:
+        """
+        inx = np.zeros(shape=(value.shape[0], ))
+        for i in range(len(aim)):
+            new = np.where(value == aim[i])
+            inx[new[0]] = i
+        return inx
+
+    def write_files(self, content, path):
+        """
+        序列化数据
+        :param path:
+        :return:
+        """
+        with open(path, 'wb') as f:
+            plk.dump(content, f)
 
     def parameters(self):
         index_f = np.random.randint(0, len(self.f), size=(self.num, ))
         f = np.array(self.f)[index_f]
         bw = np.array(self.bw)[index_f]
+        bw_idx = self.get_index([5, 20, 30, 40], bw)
         # index_sp = np.random.randint(0, len(self.sp), size=(self.num, ))
         sp = np.array(self.sp)[index_f]
+        sp_idx = self.get_index([0, 5, 10, 15, 20], sp)
         rpt = np.array([self.rpt]*self.num)
         radio = np.stack((f, bw, rpt, sp), axis=0).transpose()
 
-        rp, pb, success, communication = self.receive_power(f, sp, bw)
+        rp, pb, success, communication, edge_list = self.receive_power(f, sp, bw)
         # print(rp)
         jmrp, jm_set = self.jammer(bw)
         # print(jmrp)
         # print(index_set)
         label = self.SNR(communication, success, rp, jm_set, jmrp, pb)
-        return radio
+        feats = self.feature(index_f, bw_idx, sp_idx, jm_set)
+        self.write_files(label, 'Data/label.content')
+        self.write_files(feats, 'Data/feats.content')
+        self.write_files(edge_list, 'Data/edge_list.content')
+
+        # return radio
 
 
 if __name__ == '__main__':

@@ -120,16 +120,19 @@ class Simulation:
             r_offset = r + self.offset
             cir = Circle(xy=(r_offset, r_offset), radius=self.width/2, facecolor='none', edgecolor='black', linewidth=1, linestyle='solid')
             cir2 = Circle(xy=(r_offset, r_offset), radius=r_offset, facecolor='none', edgecolor='red', linewidth=1, linestyle='solid')
-            point_x = self.width * np.random.random(100) + self.offset
-            delta = [math.sqrt(r**2 - (x - r_offset) ** 2) for x in point_x]
-            y_delta1 = [r + x for x in delta]
-            y_delta2 = [r - x for x in delta]
-            chazhi = list(map(lambda x: x[0] - x[1], zip(y_delta1, y_delta2)))
-            # point_y = list(map(lambda x: y_delta2[0] + np.random.random()*chazhi[0], zip(y_delta2, chazhi)))
-            point_y = []
-            for i in range(len(point_x)):
-                temp = y_delta2[i] + chazhi[i] * np.random.random() + self.offset
-                point_y.append(temp)
+            # point_x = self.width * np.random.random(100) + self.offset
+            # delta = [math.sqrt(r**2 - (x - r_offset) ** 2) for x in point_x]
+            # y_delta1 = [r + x for x in delta]
+            # y_delta2 = [r - x for x in delta]
+            # chazhi = list(map(lambda x: x[0] - x[1], zip(y_delta1, y_delta2)))
+            # # point_y = list(map(lambda x: y_delta2[0] + np.random.random()*chazhi[0], zip(y_delta2, chazhi)))
+            # point_y = []
+            # for i in range(len(point_x)):
+            #     temp = y_delta2[i] + chazhi[i] * np.random.random() + self.offset
+            #     point_y.append(temp)
+
+            point_x = np.random.rand(500, ) * 2 * r + self.offset - r
+            point_y = np.random.rand(500, ) * 2 * r + self.offset - r
 
             """
             生成干扰顶点
