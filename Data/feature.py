@@ -91,7 +91,7 @@ def create_hyperedges(feats):
     # 对不满足超边大小的超边进行填充
     edge_dict = hyperedges
     # print(edge_dict)
-    hyperedges = [sample_ids(hyperedges[i], 15) for i in range(N)]
+    hyperedges = [sample_ids(hyperedges[i], 32) for i in range(N)]
     # print(hyperedges)
     return hyperedges, edge_dict
 
@@ -111,6 +111,7 @@ def cal_interference(e_data, dis):
         temp.insert(i, 0)
         # 判断阈值，改为二进制形式
         temp = np.array(temp)
+        # print(temp)
         index = np.where(temp > 1)[0]
         one_hot = np.zeros(len(e_data))
         one_hot[index] = 1
@@ -184,9 +185,10 @@ def create_adj(hyperedges):
     # 需要对顶点的超边集大小统一
     for i in range(len(adj)):
         l = len(adj[i])
-        r = get_random_num(l, 9-l, i)
+        r = get_random_num(l, 12-l, i)
         temp = [adj[i][k] for k in r]
         adj[i] += temp
+
     # for u in adj:
     #     if edge_size < len(adj[u]):
     #         edge_size = len(adj[u])
@@ -198,18 +200,18 @@ def create_adj(hyperedges):
 
 
 def create_feature():
-    point = Simulation(5, 'circle', 30, 20, 6)
+    point = Simulation(1000, 'circle', 1000, 1000, 100)
     point.plot_inter_and_outer_point()
     # 用来存放环境信息
     environment_data = []
     jammers_data = []
     for i in range(len(point.inter_position)):
         # id 属性 坐标 干扰能力
-        temp = [i, 0, point.inter_position[i], np.random.randint(1, 7)]
+        temp = [i, 0, point.inter_position[i], np.random.randint(20, 40)]
         environment_data.append(temp.copy())
 
     for j in range(len(point.outer_position)):
-        temp2 = [len(point.inter_position) + j, 1, point.outer_position[j], np.random.randint(5, 12)]
+        temp2 = [len(point.inter_position) + j, 1, point.outer_position[j], np.random.randint(35, 50)]
         jammers_data.append(temp2)
     # print(environment_data)
 
@@ -240,6 +242,8 @@ def create_feature():
     # 超边构造，version 2.0
     hyperedges, edge_dict = create_hyperedges(inner)
     hyperedges, adj = create_adj(hyperedges)
+    # 不采样的版本
+    # adj = create_adj(edge_dict)
     # 写入文件中
     write_files(feats, 'datasets/feats.content')
     # 标签

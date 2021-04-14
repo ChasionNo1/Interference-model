@@ -152,7 +152,7 @@ class DHGLayer(GraphConvolution):
         # 加入预热参数
         # 没有采样，所以没有structure,也没有采用kmeans
         self.ec = EdgeConv(self.dim_in, hidden=self.dim_in//4)
-        self.vc = EdgeConv(self.dim_in, 9)
+        self.vc = VertexConv(self.dim_in, 32)
 
     def _vertex_conv(self, func, x):
         return func(x)

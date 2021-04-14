@@ -7,7 +7,7 @@ from Data.load_data import load_data
 from torch import nn
 import torch.optim as optim
 import numpy as np
-from model.models import DHGNN_v1
+from model.models import DHGNN_v2
 from matplotlib.pylab import plt
 
 
@@ -17,7 +17,7 @@ def setup_seed(seed):
     random.seed(seed)
 
 
-def train(model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, optimizer, scheduler, device, num_epoches, print_freq=500):
+def train(model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, optimizer, scheduler, device, num_epoches):
     """
 
     :param model:
@@ -74,7 +74,7 @@ def train(model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, o
             optimizer.zero_grad()
             with torch.set_grad_enabled(phase == 'train'):
                 # 前向传播
-                output = model(ids=idx, feats=feats, edge_dict=edge_dict, adj=adj)
+                output = model(idx, feats, edge_dict, adj, epoch).squeeze(dim=0)
                 # LOSS
                 loss = criterion(output, labels[idx]) * len(idx)
 
@@ -144,7 +144,7 @@ def test(model, best_model_wts, feats, labels, idx_test, edge_dict, adj, device,
 
     for _ in range(test_time):
         with torch.no_grad():
-            outputs += model(ids=idx_test, feats=feats, edge_dict=edge_dict, adj=adj)
+            outputs += model(idx_test, feats, edge_dict, adj, epo).squeeze(dim=0)
 
     _, preds = torch.max(outputs, 1)
     _, labels_max = torch.max(labels.data[idx_test], 1)
@@ -170,14 +170,8 @@ def train_and_test_model():
     one_hot = np.eye(len(labels), 2)
     labels = one_hot[labels]
     labels = torch.Tensor(labels).float().to(device)
-    adj = torch.LongTensor(adj)
-    model = DHGNN_v1(
-        dim_feat=feats.size(1),
-        n_categories=2,
-        n_layers=2,
-        layer_spec=[feats.size()[1]],
-        dropout_rate=0.5,
-        has_bias=True,
+    model = DHGNN_v2(
+        dim_in=feats.size(1)
     )
 
     state_dict = model.state_dict()
@@ -190,7 +184,7 @@ def train_and_test_model():
     optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.005, eps=1e-20)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[200], gamma=0.5)
     criterion = torch.nn.BCELoss()
-    epoch_num = 45
+    epoch_num = 40
     # model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, optimizer, scheduler, device, num_epoches=25, print_freq=500
     model_wts_best_val_acc, model_wts_lowest_val_loss = train(model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, optimizer, scheduler, device, epoch_num)
 
@@ -201,7 +195,7 @@ def train_and_test_model():
 
 
 if __name__ == '__main__':
-    seed_num = 2000
+    seed_num = 1000
     train_loss_list = []
     train_acc_list = []
     val_loss_list = []

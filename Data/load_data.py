@@ -21,17 +21,21 @@ def load_data():
     # print(objects)
     adj, edge_dict, feats, labels = tuple(objects)
     adj = [adj[i] for i in range(len(adj))]
-    # print(feats)
+    feats = feats.astype('float32')
+    labels = labels.astype('int32')
+    labels = labels.tolist()
+    # print(edge_dict)
+    # print(labels)
+    # print(feats[2])
     # print(labels)
     '''
     如何解决稀疏问题？不需要稀疏处理
     如何确定数据集的划分问题？
     '''
     # feats = sp.csc_matrix(feats, dtype=np.float32)
-    # print(adj)
-    idx_train = [i for i in range(40)]
-    idx_val = [i for i in range(40, 65)]
-    idx_test = [i for i in range(65, 80)]
+    idx_train = [i for i in range(200)]
+    idx_val = [i for i in range(200, 300)]
+    idx_test = [i for i in range(300, 500)]
     # print(idx_train)
     # print(labels[:9])
     # adj = np.array(adj)

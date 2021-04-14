@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Ellipse, Circle, Rectangle
 import math
+import sympy
 
 
 class Simulation:
@@ -119,7 +120,7 @@ class Simulation:
             r_offset = r + self.offset
             cir = Circle(xy=(r_offset, r_offset), radius=self.width/2, facecolor='none', edgecolor='black', linewidth=1, linestyle='solid')
             cir2 = Circle(xy=(r_offset, r_offset), radius=r_offset, facecolor='none', edgecolor='red', linewidth=1, linestyle='solid')
-            point_x = self.width * np.random.random(80) + self.offset
+            point_x = self.width * np.random.random(100) + self.offset
             delta = [math.sqrt(r**2 - (x - r_offset) ** 2) for x in point_x]
             y_delta1 = [r + x for x in delta]
             y_delta2 = [r - x for x in delta]
@@ -132,17 +133,22 @@ class Simulation:
 
             """
             生成干扰顶点
+            version 2.0 取消随机生成
             """
-            point_x_outer = 2 * r_offset * np.random.random(30)
-            point_y_outer = 2 * r_offset * np.random.random(30)
+            # point_x_outer = 2 * r_offset * np.random.random(20)
+            # point_y_outer = 2 * r_offset * np.random.random(20)
             pm1 = []
             pm2 = []
-            for i in range(len(point_y_outer)):
-                m1 = (point_x_outer[i] - r_offset) ** 2 + (point_y_outer[i] - r_offset) ** 2
-                m2 = (point_x_outer[i] - r_offset) ** 2 + (point_y_outer[i] - r_offset) ** 2
-                if m1 < r_offset ** 2 and m2 > r**2:
-                    pm1.append(point_x_outer[i])
-                    pm2.append(point_y_outer[i])
+            # for i in range(len(point_y_outer)):
+            #     m1 = (point_x_outer[i] - r_offset) ** 2 + (point_y_outer[i] - r_offset) ** 2
+            #     m2 = (point_x_outer[i] - r_offset) ** 2 + (point_y_outer[i] - r_offset) ** 2
+            #     if m1 < r_offset ** 2 and m2 > (r+60)**2:
+            #         pm1.append(point_x_outer[i])
+            #         pm2.append(point_y_outer[i])
+            x = sympy.symbols('x')
+            a = sympy.solve(2 * x**2 - 4*self.offset*x + self.offset ** 2, x)
+            pm1 = [int(a[0]), int(a[0]), int(a[1]), int(a[1])]
+            pm2 = [int(a[1]), int(a[0]), int(a[1]), int(a[0])]
             plt.scatter(point_x, point_y)
             plt.scatter(pm1, pm2)
             point_x = np.array(point_x)[:, np.newaxis]
@@ -154,12 +160,12 @@ class Simulation:
             # ax = self.fig.add_subplot(111)
             # ax.add_patch(cir)
             # ax.add_patch(cir2)
-            # plt.axis('equal')
+            # # plt.axis('equal')
             # plt.show()
 
 
 if __name__ == '__main__':
-    pic = Simulation(1000, 'circle', 40, 30, 8)
+    pic = Simulation(5, 'circle', 300, 60, 15)
     pic.plot_inter_and_outer_point()
 
 
