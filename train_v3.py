@@ -14,6 +14,7 @@ import torch.optim as optim
 import numpy as np
 from model.models import DHGNN_v3
 from matplotlib.pylab import plt
+from communication_model.load_prediction_data import load_data2
 
 
 def setup_seed(seed):
@@ -125,6 +126,15 @@ def train(model, feats, labels, idx_train, idx_val, edge_dict, criterion, optimi
                 print(f'Best val Acc: {best_acc:4f}, Min val loss: {loss_min:4f}')
                 print('-' * 40)
 
+    # 模型保存到本地
+    torch.save({'epoch': acc_epoch,
+                'model_state_dict': model_wts_best_val_acc,
+                'optimizer_state_dict': optimizer.state_dict(),
+                }, 'weights/model_wts_best_val_acc.pkl')
+    torch.save({'epoch': loss_epoch,
+                'model_state_dict': model_wts_lowest_val_loss,
+                'optimizer_state_dict': optimizer.state_dict()
+                }, 'weights/model_wts_lowest_val_loss.pkl')
     # 训练结束
     # 计算用时
     total_time = time.time() - since
@@ -186,21 +196,34 @@ def train_and_test_model():
         if 'bias' in key:
             state_dict[key] = state_dict[key].zero_()
 
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.005, eps=1e-20)
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0005, eps=1e-20)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[200], gamma=0.5)
     criterion = torch.nn.BCELoss()
-    epoch_num = 350
+    epoch_num = 300
     # model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, optimizer, scheduler, device, num_epoches=25, print_freq=500
     model_wts_best_val_acc, model_wts_lowest_val_loss = train(model, feats, labels, idx_train, idx_val, edge_dict, criterion, optimizer, scheduler, device, epoch_num)
 
     # test
+    # pre_feats, pre_labels, pre_idx, pre_edge_dict = load_data2()
+    # pre_feats = torch.Tensor(pre_feats)
+    # pre_one_hot = np.eye(len(pre_labels), 2)
+    # pre_labels = pre_one_hot[pre_labels]
+    # pre_labels = torch.Tensor(pre_labels).float().to(device)
+    #
+    # acc1 = test(model, model_wts_best_val_acc, pre_feats, pre_labels, pre_idx, pre_edge_dict, device)
+    # print('acc1', acc1)
     if idx_test is not None:
         print('test part')
-        test(model, model_wts_best_val_acc, feats, labels, idx_test, edge_dict, device)
+        acc = test(model, model_wts_best_val_acc, feats, labels, idx_test, edge_dict, device)
+        acc = str(acc.item())
+        with open('acc.txt', 'a')as f:
+            f.write(acc)
+            f.write('\n')
 
 
 if __name__ == '__main__':
     seed_num = 100
+    setup_seed(seed_num)
     train_loss_list = []
     train_acc_list = []
     val_loss_list = []
@@ -212,6 +235,9 @@ if __name__ == '__main__':
     plt.plot(train_acc_list)
     plt.plot(val_loss_list)
     plt.plot(val_acc_list)
+
+    token = time.time()
+    plt.savefig('result/result_{}'.format(int(token)))
     plt.show()
 
 

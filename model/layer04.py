@@ -98,7 +98,7 @@ class GraphConvolution(nn.Module):
         self.dim_in = kwargs['dim_in']
         self.dim_out = kwargs['dim_out']
         self.fc = nn.Linear(self.dim_in, self.dim_out, bias=True)
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout = nn.Dropout(p=0.01)
         self.activation = kwargs['activation']
 
     def _region_aggregate(self, feats, edge_dict):
@@ -193,7 +193,7 @@ class DHGLayer(nn.Module):
         self.structure = None
 
         self.activation = kwargs['activation']
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout = nn.Dropout(p=0.01)
         self.dim_out = kwargs['dim_out']
         self.fc = nn.Linear(self.dim_in, self.dim_out, bias=True)
 

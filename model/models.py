@@ -66,14 +66,14 @@ class DHGNN_v3(nn.Module):
 
         self.dim_feats = kwargs['dim_feats']
         self.dims_out = [self.dim_feats, 2]
-        self.nearest_neighbor = 1
-        self.cluster_neighbor = 1
-        self.structured_neighbor = 2
-        self.n_cluster = 3
+        self.nearest_neighbor = 5
+        self.cluster_neighbor = 5
+        self.structured_neighbor = 15
+        self.n_cluster = 20
         self.n_center = 1
         self.wu_knn = 0
-        self.wu_kmeans = 10
-        self.wu_struct = 10
+        self.wu_kmeans = 10000
+        self.wu_struct = 5
         self.activation = nn.ModuleList([nn.ReLU()] + [nn.Sigmoid()])
         '''
         [GraphConvolution(

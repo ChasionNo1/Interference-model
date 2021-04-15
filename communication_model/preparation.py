@@ -11,7 +11,7 @@ C = 3.0*100000000
 
 
 class Radio:
-    def __init__(self, num):
+    def __init__(self):
         """
         电台模型：
         参数：
@@ -30,6 +30,7 @@ class Radio:
 
         """
         super(Radio, self).__init__()
+        # 10, 'circle', 100, 100, 200
         self.point = Simulation(10, 'circle', 100, 100, 200)
         self.point.plot_inter_and_outer_point()
         self.num = len(self.point.inter_position)
@@ -213,8 +214,28 @@ class Radio:
 
         label = np.array(label)
         count = np.where(label == 1)
-        # print(len(count[0]))
+        print(len(count[0]))
         return label
+
+    def trans2bin(self, num):
+        num = int(num * 1000) / 1000
+        # print(num)
+        integer_num = int(num)
+        bin_1 = bin(integer_num)
+        fra_num = num - integer_num
+        bins = []
+        for i in range(3):
+            fra_num = fra_num * 2
+            bins.append(1 if fra_num >= 1 else 0)
+            fra_num = fra_num - int(fra_num)
+
+        bin_list = list(bin_1[2:])
+        bin_list = [int(x) for x in bin_list]
+        fill_list = [0] * (11 - len(bin_list))
+        bin_list = fill_list + bin_list
+
+        bin_list = bin_list + bins
+        return bin_list
 
     def one_hot(self, data):
         """
@@ -241,9 +262,10 @@ class Radio:
         p_one_hot = []
         # print(position)
         for i in range(self.num):
-            p_one_hot.append(list(bin(int((position[i][0]*1000)))[2:]) + list(bin(int(position[i][1]))[2:]))
+            p_one_hot.append(self.trans2bin(position[i][0]) + self.trans2bin(position[i][1]))
         for i in range(self.num):
             p_one_hot[i] = [int(x) for x in p_one_hot[i]]
+        # print(len(p_one_hot[0]))
         return np.array(p_one_hot)
 
     def feature(self, index_f, bw_index, sp_index, jm_set):
@@ -308,14 +330,20 @@ class Radio:
         # print(index_set)
         label = self.SNR(communication, success, rp, jm_set, jmrp, pb)
         feats = self.feature(index_f, bw_idx, sp_idx, jm_set)
-        self.write_files(label, 'Data/label.content')
-        self.write_files(feats, 'Data/feats.content')
-        self.write_files(edge_list, 'Data/edge_list.content')
+        names_pre = ['prediction_label', 'prediction_feats', 'prediction_edge_list']
+        names_tra = ['train_label', 'train_feats', 'train_edge_list']
+        ob = [label, feats, edge_list]
+        for i in range(len(names_tra)):
+            self.write_files(ob[i], 'Data/{}.content'.format(names_tra[i]))
+
+        # self.write_files(label, 'Data/prediction_label.content')
+        # self.write_files(feats, 'Data/prediction_feats.content')
+        # self.write_files(edge_list, 'Data/prediction_edge_list.content')
 
         # return radio
 
 
 if __name__ == '__main__':
-    r = Radio(80)
+    r = Radio()
     r.parameters()
     np.random.seed(100)
