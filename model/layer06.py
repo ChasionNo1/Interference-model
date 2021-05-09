@@ -1,5 +1,15 @@
 # !/usr/bin/env python
 # -*- coding:utf-8 -*-
+# @Time      :   2021/4/25 10:45
+# @Author    :   Chasion
+# Description:   采用注意力机制填充采样的cora数据集
+# !/usr/bin/env python
+# -*- coding:utf-8 -*-
+# @Time      :   2021/4/20 22:04
+# @Author    :   Chasion
+# Description:
+# !/usr/bin/env python
+# -*- coding:utf-8 -*-
 # @Time      :   2021/4/10 16:31
 # @Author    :   Chasion
 # Description:   由特征构造超边
@@ -11,6 +21,7 @@ from communication_model.load_data import load_data
 from utils.layer_utils import cos_dis, sample_ids_v2, sample_ids
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import euclidean_distances
+from Data.load_cora import load_citation_data
 
 
 class Transform(nn.Module):
@@ -98,7 +109,7 @@ class GraphConvolution(nn.Module):
         self.dim_in = kwargs['dim_in']
         self.dim_out = kwargs['dim_out']
         self.fc = nn.Linear(self.dim_in, self.dim_out, bias=True)
-        self.dropout = nn.Dropout(p=0.01)
+        self.dropout = nn.Dropout(p=0.1)
         self.activation = kwargs['activation']
 
     def _region_aggregate(self, feats, edge_dict):
@@ -129,11 +140,10 @@ class Attention(nn.Module):
         self.dim_in = kwargs['dim_in']
         self.w_q = nn.Linear(self.dim_in, 1)
         self.w_k = nn.Linear(self.dim_in, 1)
-        self.w_v = nn.Linear(self.dim_in, 1)
         self.softmax = nn.Softmax(0)
         self.tanh = nn.Tanh()
 
-    def forward(self, feats, edge_dict):
+    def forward(self, feats, edge_dict, ks):
         """
 
         :param feats:
@@ -142,21 +152,53 @@ class Attention(nn.Module):
         """
         n_edge = len(edge_dict)
         edge_feats = []
+        structure_edge = []
         for i in range(n_edge):
             # 得到每个主属性的超边中的顶点个数
             n_point = len(edge_dict[i])
+            # 只有自己一个顶点，就复制ks个填充
             if n_point == 1:
-                edge_feats.append(feats[i].detach().numpy().tolist())
+                arr = np.ones(shape=(ks, )) * i
+                structure_edge.append(arr.tolist().copy())
+            elif n_point == 2:
+                # 如果只有两个顶点，那么就对半分
+                arr1 = np.ones(shape=(int(ks/2), )) * i
+                arr2 = np.ones(shape=(int(ks/2), )) * edge_dict[i][1]
+                arr = np.hstack((arr1, arr2))
+                structure_edge.append(arr.tolist().copy())
+
             else:
+                # 如果有多个顶点，则计算注意力系数，
                 edge_array = np.array(edge_dict[i])
                 new = np.delete(edge_array, 0)
+                # 计算自己
                 ei = self.w_q(feats[edge_dict[i][0]]).unsqueeze(dim=0)
                 ej = self.w_k(feats[new])
                 eij = torch.multiply(ei, ej)
+                # 这里计算了注意力系数了，不清楚有少个啊？
                 aij = self.softmax(eij)
-                feats[edge_dict[i][0]].add_(torch.mul(aij, feats[new]).sum(0).squeeze(dim=0))
-                edge_feats.append(feats[edge_dict[i][0]].detach().numpy().tolist())
-        return torch.LongTensor(edge_feats)
+                # 采样填充，获取得分
+                score = aij.view(-1).detach().numpy()
+                idx = np.argsort(score)
+                new_idx = new[idx]
+                new_idx = np.insert(new_idx, 0, i)
+                new_list = new_idx.tolist()
+                if int(ks / new_idx.shape[0]) >= 1:
+                    num_repeat = int(ks / new_idx.shape[0])
+                    repeat_arr = new_list * num_repeat + new_list[:ks % new_idx.shape[0]]
+                else:
+                    repeat_arr = new_list[:ks]
+
+                # else:
+                #     repeat_arr = new_list + new_list[:ks % new_idx.shape[0]]
+                structure_edge.append(repeat_arr.copy())
+        # print(structure_edge)
+        # for i in range(len(structure_edge)):
+        #     if len(structure_edge[i]) != 20:
+        #         print(i)
+        # print(edge_dict[41])
+        # print(structure_edge[41])
+        return structure_edge
 
 
 class DHGLayer(nn.Module):
@@ -193,7 +235,7 @@ class DHGLayer(nn.Module):
         self.structure = None
 
         self.activation = kwargs['activation']
-        self.dropout = nn.Dropout(p=0.015)
+        self.dropout = nn.Dropout(p=0.1)
         self.dim_out = kwargs['dim_out']
         self.fc = nn.Linear(self.dim_in, self.dim_out, bias=True)
 
@@ -219,7 +261,10 @@ class DHGLayer(nn.Module):
             '''
             # idx是所有超边中每个顶点索引构成的列表(_N,ks)
             # 这里进行采样，也是填充，128
-            idx = torch.LongTensor([sample_ids(edge_dict[i], self.ks) for i in range(_N)])  # (_N, ks)
+            a = Attention(dim_in=feats.size(1))
+            structure_edge = a.forward(feats, edge_dict, self.ks)
+            # print(structure_edge)
+            idx = torch.LongTensor(structure_edge)  # (_N, ks)
             self.structure = idx
         else:
             idx = self.structure
@@ -310,15 +355,21 @@ class DHGLayer(nn.Module):
         x = torch.cat(hyperedge, dim=1)
         x = self.ec(x)
         x = self._fc(x)
+        # print(x)
         return x
 
 
 if __name__ == '__main__':
-    feats, labels, idx_train, idx_val, idx_test, edge_dict = load_data()
+    path = r'D:\graph_code\Interference-model\Data\\cora'
+    cfg = {'activate_dataset': 'cora',
+           'citation_root': path,
+           'add_self_loop': True,
+           }
+    feats, labels, idx_train, idx_val, idx_test, n_category, edge_dict, _ = load_citation_data(cfg)
     feats = torch.Tensor(feats)
     d = feats.size()[1]
-    # a = Attention(dim_in=n)
-    # a.forward(feats, edge_dict)
+    # a = Attention(dim_in=d)
+    # a.forward(feats, edge_dict, 20)
     relu = nn.Sigmoid()
     p = {
         'dim_in': d,
@@ -331,5 +382,5 @@ if __name__ == '__main__':
         'wu_struct': 5,
         'activation': relu,
     }
-    layer = DHGLayer(dim_in=d, dim_out=2, structured_neighbor=10, nearest_neighbor=10, cluster_neighbor=10, n_cluster=30, n_center=5, wu_knn=0, wu_kmeans=10, wu_struct=5, activation=relu)
+    layer = DHGLayer(dim_in=d, dim_out=7, structured_neighbor=20, nearest_neighbor=10, cluster_neighbor=10, n_cluster=30, n_center=5, wu_knn=0, wu_kmeans=10, wu_struct=5, activation=relu)
     layer.forward(ids=idx_train, feats=feats, edge_dict=edge_dict, epo=15)
