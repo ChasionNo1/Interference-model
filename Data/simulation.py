@@ -118,8 +118,8 @@ class Simulation:
             # 半径是self.width/2
             r = self.width/2
             r_offset = r + self.offset
-            cir = Circle(xy=(r_offset, r_offset), radius=self.width/2, facecolor='none', edgecolor='black', linewidth=1, linestyle='solid')
-            cir2 = Circle(xy=(r_offset, r_offset), radius=r_offset, facecolor='none', edgecolor='red', linewidth=1, linestyle='solid')
+            # cir = Circle(xy=(r_offset, r_offset), radius=self.width/2, facecolor='none', edgecolor='black', linewidth=1, linestyle='solid')
+            # cir2 = Circle(xy=(r_offset, r_offset), radius=r_offset, facecolor='none', edgecolor='red', linewidth=1, linestyle='solid')
             # point_x = self.width * np.random.random(100) + self.offset
             # delta = [math.sqrt(r**2 - (x - r_offset) ** 2) for x in point_x]
             # y_delta1 = [r + x for x in delta]
@@ -153,22 +153,23 @@ class Simulation:
             pm1 = [int(a[0]), int(a[0]), int(a[1]), int(a[1])]
             pm2 = [int(a[1]), int(a[0]), int(a[1]), int(a[0])]
             plt.scatter(point_x, point_y)
-            plt.scatter(pm1, pm2)
+            # plt.scatter(pm1, pm2)
             point_x = np.array(point_x)[:, np.newaxis]
             point_y = np.array(point_y)[:, np.newaxis]
             pm1 = np.array(pm1)[:, np.newaxis]
             pm2 = np.array(pm2)[:, np.newaxis]
             self.inter_position = np.hstack([point_x, point_y])
             self.outer_position = np.hstack([pm1, pm2])
-            # ax = self.fig.add_subplot(111)
+            ax = self.fig.add_subplot(111)
             # ax.add_patch(cir)
             # ax.add_patch(cir2)
-            # # plt.axis('equal')
+            # plt.xlim(0, )
+            # plt.axis('equal')
             # plt.show()
 
 
 if __name__ == '__main__':
-    pic = Simulation(5, 'circle', 300, 60, 15)
+    pic = Simulation(5, 'circle', 20, 20, 50)
     pic.plot_inter_and_outer_point()
 
 

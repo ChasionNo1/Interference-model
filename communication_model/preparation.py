@@ -24,14 +24,14 @@ class Radio:
             带宽：     60MHZ
             发送功率：  15w
             信噪比阈值：30dB
-            接受信号阈值：4e-7w
+            接受信号阈值：4e-7w26.2
             噪声系数：  5dB
             天线增益：  2dB
 
         """
         super(Radio, self).__init__()
         # 10, 'circle', 100, 100, 200
-        self.point = Simulation(10, 'circle', 100, 100, 200)
+        self.point = Simulation(1000, 'circle', 100, 100, 200)
         self.point.plot_inter_and_outer_point()
         self.num = len(self.point.inter_position)
         self.f = [10, 20, 30, 40, 50, 60, 70, 80, 110, 150, 200, 230, 270, 350, 400]
@@ -173,10 +173,10 @@ class Radio:
         # print(success)
         # print(communication)
         # print(len(hyper_idx))
-        print(hyper_idx)
+        # print(hyper_idx)
         for i in range(self.num):
             hyper_idx[i].insert(0, i)
-        print(hyper_idx)
+        # print(hyper_idx)
         return rp_list, pb, success, communication, hyper_idx
 
     def SNR(self, communication, success, rp, jm_set, jmrp, pb):
@@ -214,7 +214,7 @@ class Radio:
 
         label = np.array(label)
         count = np.where(label == 1)
-        print(len(count[0]))
+        print(len(count[0])/500)
         return label
 
     def trans2bin(self, num):
@@ -287,7 +287,7 @@ class Radio:
                 jm_one_hot.append(idx.tolist().copy())
         feats = np.hstack([f_one_hot, bw_one_hot, sp_one_hot, pos_one_hot, jm_one_hot])
         # (100, 52)
-        # print(feats.shape)
+        print(feats.shape)
         return feats
 
     def get_index(self, aim, value):
@@ -334,7 +334,7 @@ class Radio:
         names_tra = ['train_label', 'train_feats', 'train_edge_list']
         ob = [label, feats, edge_list]
         for i in range(len(names_tra)):
-            self.write_files(ob[i], 'Data/{}.content'.format(names_tra[i]))
+            self.write_files(ob[i], 'Data/15/{}.content'.format(names_pre[i]))
 
         # self.write_files(label, 'Data/prediction_label.content')
         # self.write_files(feats, 'Data/prediction_feats.content')

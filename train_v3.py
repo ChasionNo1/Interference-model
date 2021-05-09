@@ -15,6 +15,7 @@ import numpy as np
 from model.models import DHGNN_v3
 from matplotlib.pylab import plt
 from communication_model.load_prediction_data import load_data2
+from Data.load_cora import load_citation_data
 
 
 def setup_seed(seed):
@@ -98,12 +99,12 @@ def train(model, feats, labels, idx_train, idx_val, edge_dict, criterion, optimi
             epoch_loss = running_loss / len(idx)
             epoch_acc = running_corrects.double() / len(idx)
             if phase == 'train':
-                train_loss_list.append(epoch_loss.detach().numpy())
-                train_acc_list.append(epoch_acc.detach().numpy())
+                train_loss_list.append(epoch_loss.item())
+                train_acc_list.append(epoch_acc.item())
 
             if phase == 'val':
-                val_loss_list.append(epoch_loss.detach().numpy())
-                val_acc_list.append(epoch_acc.detach().numpy())
+                val_loss_list.append(epoch_loss.item())
+                val_acc_list.append(epoch_acc.item())
             # if epoch % print_freq == 0:
             print(f'{phase} loss: {epoch_loss:.4f} acc: {epoch_acc:.4f}')
 
@@ -180,6 +181,7 @@ def train_and_test_model():
     # 使用cpu
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # load_data
+    # load cora数据集
     feats, labels, idx_train, idx_val, idx_test, edge_dict = load_data()
     feats = torch.Tensor(feats).to(device)
     one_hot = np.eye(len(labels), 2)
@@ -196,10 +198,10 @@ def train_and_test_model():
         if 'bias' in key:
             state_dict[key] = state_dict[key].zero_()
 
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0005, eps=1e-20)
+    optimizer = optim.Adam(model.parameters(), lr=0.026, weight_decay=0.0005, eps=1e-20)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[200], gamma=0.5)
     criterion = torch.nn.BCELoss()
-    epoch_num = 300
+    epoch_num = 35
     # model, feats, labels, idx_train, idx_val, edge_dict, adj, criterion, optimizer, scheduler, device, num_epoches=25, print_freq=500
     model_wts_best_val_acc, model_wts_lowest_val_loss = train(model, feats, labels, idx_train, idx_val, edge_dict, criterion, optimizer, scheduler, device, epoch_num)
 
@@ -221,6 +223,45 @@ def train_and_test_model():
             f.write('\n')
 
 
+def plot_result():
+    fig, (ax1, ax2) = plt.subplots(2, sharex=True)
+    # fig.suptitle('Attention Sample Train Result')
+    # ax1 = fig.add_subplot(2, 1, 1)
+    # ax2 = fig.add_subplot(2, 1, 2)
+    ax1.plot(train_loss_list, 'k-', label='train loss')
+    ax1.plot(val_loss_list, 'k-.', label='val loss')
+    # ax1.set_xlabel('epoch', size=16)
+    ax1.set_ylabel('loss', size=16)
+    ax1.legend(loc='lower left')
+
+    ax2.plot(train_acc_list, 'k-', label='train accuracy')
+    ax2.plot(val_acc_list, 'k-.', label='val accuracy')
+    ax2.set_xlabel('epoch', size=16)
+    ax2.set_ylabel('accuracy', size=16)
+    ax2.legend(loc='upper left')
+    # plt.tight_layout()
+    plt.subplots_adjust(hspace=0.1)
+    path = 'result/picture/ALTH'
+    plt.savefig(path, dpi=400)
+    plt.show()
+
+
+def write_result():
+    phase = ['Random', 'AHTL', 'ALTH']
+    result = {'phase': '10',
+              'train_loss': train_loss_list,
+              'train_acc': train_acc_list,
+              'val_loss': val_loss_list,
+              'val_acc': val_acc_list}
+    with open('result/data/result.txt', 'a') as f:
+        f.write(str(result) + '\n')
+
+
+def write_interference():
+    with open('result/data/25val_loss.txt', 'a') as f:
+        f.write(str(val_loss_list) + '\n')
+
+
 if __name__ == '__main__':
     seed_num = 100
     setup_seed(seed_num)
@@ -230,15 +271,17 @@ if __name__ == '__main__':
     val_acc_list = []
 
     train_and_test_model()
-
-    plt.plot(train_loss_list)
-    plt.plot(train_acc_list)
-    plt.plot(val_loss_list)
-    plt.plot(val_acc_list)
-
+    # write_result()
+    write_interference()
+    plot_result()
+    # plt.plot(train_loss_list, label='train_loss')
+    # plt.plot(train_acc_list, label='train_acc')
+    # plt.plot(val_loss_list, label='val_loss')
+    # plt.plot(val_acc_list, label='val_acc')
+    # plt.legend()
     token = time.time()
-    plt.savefig('result/result_{}'.format(int(token)))
-    plt.show()
+    # plt.savefig('result/result_{}'.format(int(token)))
+    # plt.show()
 
 
 
