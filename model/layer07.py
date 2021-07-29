@@ -1,12 +1,11 @@
 # !/usr/bin/env python
 # -*- coding:utf-8 -*-
-# @Time      :   2021/4/10 16:31
+# @Time      :   2021/6/21 16:12
 # @Author    :   Chasion
-# Description:   由特征构造超边
+# Description:
 """
-未使用注意力采样
+layer07:在structure和kmeans中都加入注意力采样
 """
-
 
 import torch
 from torch import nn
@@ -44,6 +43,7 @@ class VertexConv(nn.Module):
     """
     顶点卷积层
     """
+
     def __init__(self, dim_in, k):
         super().__init__()
         # (N, k, d) -> (N, k, d)
@@ -67,6 +67,7 @@ class EdgeConv(nn.Module):
     由顶点卷积得到超边特征，超边特征集和，先经过MLP(attention)，得到一个权重，
     然后再将各个超边特征与权重dot，再加权平均得到质心顶点的特征
     """
+
     def __init__(self, dim_ft, hidden):
         super().__init__()
         # 多层感知机,linear也就是全连接层
@@ -95,6 +96,7 @@ class GraphConvolution(nn.Module):
     简单的图卷积层，先是对顶点特征进行线性，再过激活函数，再dropout，完成特征提取
     然后再进行特征聚合
     """
+
     def __init__(self, **kwargs):
         # **的作用是将传入的字典进行unpack，然后将字典中的值作为关键词参数传入函数中。
         # 使用 ** kwargs定义参数时，kwargs将会接收一个positional argument后所有关键词参数的字典。
@@ -133,11 +135,10 @@ class Attention(nn.Module):
         self.dim_in = kwargs['dim_in']
         self.w_q = nn.Linear(self.dim_in, 1)
         self.w_k = nn.Linear(self.dim_in, 1)
-        self.w_v = nn.Linear(self.dim_in, 1)
         self.softmax = nn.Softmax(0)
         self.tanh = nn.Tanh()
 
-    def forward(self, feats, edge_dict):
+    def forward(self, feats, edge_dict, ks):
         """
 
         :param feats:
@@ -146,21 +147,57 @@ class Attention(nn.Module):
         """
         n_edge = len(edge_dict)
         edge_feats = []
+        structure_edge = []
         for i in range(n_edge):
             # 得到每个主属性的超边中的顶点个数
             n_point = len(edge_dict[i])
+            # 只有自己一个顶点，就复制ks个填充
             if n_point == 1:
-                edge_feats.append(feats[i].detach().numpy().tolist())
+                arr = np.ones(shape=(ks,)) * i
+                structure_edge.append(arr.tolist().copy())
+            elif n_point == 2:
+                # 如果只有两个顶点，那么就对半分
+                if ks % 2 == 0:
+                    arr1 = np.ones(shape=(int(ks / 2),)) * i
+                    arr2 = np.ones(shape=(int(ks / 2),)) * edge_dict[i][1]
+                else:
+                    arr1 = np.ones(shape=(int(ks / 2) + 1,)) * i
+                    arr2 = np.ones(shape=(int(ks / 2),)) * edge_dict[i][1]
+                arr = np.hstack((arr1, arr2))
+                structure_edge.append(arr.tolist().copy())
+
             else:
+                # 如果有多个顶点，则计算注意力系数，
                 edge_array = np.array(edge_dict[i])
                 new = np.delete(edge_array, 0)
+                # 计算自己
                 ei = self.w_q(feats[edge_dict[i][0]]).unsqueeze(dim=0)
                 ej = self.w_k(feats[new])
                 eij = torch.multiply(ei, ej)
+                # 这里计算了注意力系数了，不清楚有少个啊？
                 aij = self.softmax(eij)
-                feats[edge_dict[i][0]].add_(torch.mul(aij, feats[new]).sum(0).squeeze(dim=0))
-                edge_feats.append(feats[edge_dict[i][0]].detach().numpy().tolist())
-        return torch.LongTensor(edge_feats)
+                # 采样填充，获取得分
+                score = aij.view(-1).detach().numpy()
+                idx = np.argsort(score)
+                new_idx = new[idx]
+                new_idx = np.insert(new_idx, 0, i)
+                new_list = new_idx.tolist()
+                if int(ks / new_idx.shape[0]) >= 1:
+                    num_repeat = int(ks / new_idx.shape[0])
+                    repeat_arr = new_list * num_repeat + new_list[:ks % new_idx.shape[0]]
+                else:
+                    repeat_arr = new_list[:ks]
+
+                # else:
+                #     repeat_arr = new_list + new_list[:ks % new_idx.shape[0]]
+                structure_edge.append(repeat_arr.copy())
+        # print(structure_edge)
+        # for i in range(len(structure_edge)):
+        #     if len(structure_edge[i]) != 20:
+        #         print(i)
+        # print(edge_dict[41])
+        # print(structure_edge[41])
+        return structure_edge
 
 
 class DHGLayer(nn.Module):
@@ -182,6 +219,7 @@ class DHGLayer(nn.Module):
         # 特征值邻近代表着什么？如果两个特征非常接近，说明受干扰情况很接近，则在一个超边里是很可能的。
         self.kc = kwargs['cluster_neighbor']
         self.n_cluster = kwargs['n_cluster']
+        # 中心个数
         self.n_center = kwargs['n_center']
 
         # warm_up 预热部分
@@ -192,7 +230,7 @@ class DHGLayer(nn.Module):
         self.vc_n = VertexConv(self.dim_in, self.kn)
         self.vc_c = VertexConv(self.dim_in, self.kc)
         self.vc_s = VertexConv(self.dim_in, self.ks)
-        self.ec = EdgeConv(self.dim_in, hidden=self.dim_in//4)
+        self.ec = EdgeConv(self.dim_in, hidden=self.dim_in // 4)
         self.kmeans = None
         self.structure = None
 
@@ -223,7 +261,11 @@ class DHGLayer(nn.Module):
             '''
             # idx是所有超边中每个顶点索引构成的列表(_N,ks)
             # 这里进行采样，也是填充，128
-            idx = torch.LongTensor([sample_ids(edge_dict[i], self.ks) for i in range(_N)])  # (_N, ks)
+            a = Attention(dim_in=feats.size(1))
+            print('edge_dict:', edge_dict)
+            structure_edge = a.forward(feats, edge_dict, self.ks)
+            # print(structure_edge)
+            idx = torch.LongTensor(structure_edge)  # (_N, ks)
             self.structure = idx
         else:
             idx = self.structure
@@ -263,17 +305,39 @@ class DHGLayer(nn.Module):
 
             _N = feats.size(0)
             np_feats = feats.detach().numpy()
-            kmeans = KMeans(n_clusters=self.n_cluster, random_state=0, n_jobs=-1).fit(np_feats)
+            kmeans = KMeans(n_clusters=self.n_cluster, random_state=0).fit(np_feats)
             centers = kmeans.cluster_centers_
             dis = euclidean_distances(np_feats, centers)
-            _, cluster_center_dict = torch.topk(torch.Tensor(dis), self.n_center, largest=False)
+            _, cluster_center_dict = torch.topk(torch.Tensor(dis), self.n_cluster, largest=False)
             cluster_center_dict = cluster_center_dict.numpy()
             point_labels = kmeans.labels_
             # 顶点在哪一个聚类里
             point_in_which_cluster = [np.where(point_labels == i)[0] for i in range(self.n_cluster)]
             # 采样点的kc个临近聚类团体最为它的超边
-            idx = torch.LongTensor([[sample_ids_v2(point_in_which_cluster[cluster_center_dict[point][i]], self.kc)
-                                     for i in range(self.n_center)] for point in range(_N)])  # (_N, n_center, kc)
+            # 加一个注意力采样
+            """
+            point_in_which_cluster[cluster_center_dict[point][i]],self.ks
+            从所给的point_list中，采样构成self.ks大小
+            所以，
+            a = Attention(dim_in=feats.size(1))
+            print('edge_dict:', edge_dict)
+            structure_edge = a.forward(feats, edge_dict, self.ks)
+            """
+            pre_edge_dict = []
+            for i in range(cluster_center_dict.shape[0]):
+                temp = point_in_which_cluster[cluster_center_dict[i][0]].tolist()
+                idx = temp.index(i)
+                temp[idx], temp[0] = temp[0], temp[idx]
+                pre_edge_dict.append(temp.copy())
+            a = Attention(dim_in=feats.size(1))
+            cluster_edge = a.forward(feats, pre_edge_dict, self.kc)
+            cluster_edge = np.array(cluster_edge)
+            cluster_edge = cluster_edge[:, np.newaxis, :]
+            idx = torch.LongTensor(cluster_edge)
+            # print('idx2:', idx.shape)
+            # idx = torch.LongTensor([[sample_ids_v2(point_in_which_cluster[cluster_center_dict[point][i]], self.kc)
+            #                          for i in range(self.n_center)] for point in range(_N)])  # (_N, n_center, kc)
+            print(idx.shape)
             self.kmeans = idx
         else:
             idx = self.kmeans
@@ -314,6 +378,7 @@ class DHGLayer(nn.Module):
         x = torch.cat(hyperedge, dim=1)
         x = self.ec(x)
         x = self._fc(x)
+        # print(x)
         return x
 
 
@@ -321,8 +386,8 @@ if __name__ == '__main__':
     feats, labels, idx_train, idx_val, idx_test, edge_dict = load_data()
     feats = torch.Tensor(feats)
     d = feats.size()[1]
-    # a = Attention(dim_in=n)
-    # a.forward(feats, edge_dict)
+    # a = Attention(dim_in=d)
+    # a.forward(feats, edge_dict, 20)
     relu = nn.Sigmoid()
     p = {
         'dim_in': d,
@@ -335,5 +400,5 @@ if __name__ == '__main__':
         'wu_struct': 5,
         'activation': relu,
     }
-    layer = DHGLayer(dim_in=d, dim_out=2, structured_neighbor=10, nearest_neighbor=10, cluster_neighbor=10, n_cluster=30, n_center=5, wu_knn=0, wu_kmeans=10, wu_struct=5, activation=relu)
+    layer = DHGLayer(dim_in=d, dim_out=2, structured_neighbor=20, nearest_neighbor=10, cluster_neighbor=10, n_cluster=30, n_center=1, wu_knn=0, wu_kmeans=10, wu_struct=5, activation=relu)
     layer.forward(ids=idx_train, feats=feats, edge_dict=edge_dict, epo=15)

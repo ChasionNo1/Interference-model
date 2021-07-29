@@ -68,7 +68,7 @@ def train(model, feats, labels, idx_train, idx_val, edge_dict, criterion, optimi
 
             if phase == 'train':
                 # 学习率衰减
-                scheduler.step()
+
                 model.train()
             else:
                 model.eval()
@@ -91,6 +91,7 @@ def train(model, feats, labels, idx_train, idx_val, edge_dict, criterion, optimi
                     # 训练的时候，需要反向传播优化参数，验证时不需要
                     loss.backward()
                     optimizer.step()
+                    scheduler.step()
 
             running_loss += loss
             _, labels_max = torch.max(labels.data[idx], 1)
@@ -247,13 +248,13 @@ def plot_result():
 
 
 def write_result():
-    phase = ['Random', 'AHTL', 'ALTH']
-    result = {'phase': '10',
+    phase = ['Random', 'ASHG']
+    result = {'phase': phase[0],
               'train_loss': train_loss_list,
               'train_acc': train_acc_list,
               'val_loss': val_loss_list,
               'val_acc': val_acc_list}
-    with open('result/data/result.txt', 'a') as f:
+    with open('result/data/722result.txt', 'a') as f:
         f.write(str(result) + '\n')
 
 
@@ -271,7 +272,7 @@ if __name__ == '__main__':
     val_acc_list = []
 
     train_and_test_model()
-    # write_result()
+    write_result()
     write_interference()
     plot_result()
     # plt.plot(train_loss_list, label='train_loss')

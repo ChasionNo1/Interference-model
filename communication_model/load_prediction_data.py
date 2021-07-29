@@ -12,7 +12,7 @@ def load_data2():
     # names = ['train_edge_list', 'train_feats', 'train_label']
     objects = []
     for i in range(len(names)):
-        with open(r'D:\graph_code\Interference-model\communication_model\Data\10\{}.content'.format(names[i]), 'rb')as f:
+        with open(r'D:\graph_code\Interference-model\communication_model\Data\test502\{}.content'.format(names[i]), 'rb')as f:
             objects.append(plk.load(f, encoding='latin1'))
 
     edge_list, feats, label = tuple(objects)

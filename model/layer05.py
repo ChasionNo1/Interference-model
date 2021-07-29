@@ -8,7 +8,9 @@
 # @Time      :   2021/4/10 16:31
 # @Author    :   Chasion
 # Description:   由特征构造超边
-
+"""
+只对structure_edge使用
+"""
 import torch
 from torch import nn
 import numpy as np
@@ -305,12 +307,14 @@ class DHGLayer(nn.Module):
             kmeans = KMeans(n_clusters=self.n_cluster, random_state=0, n_jobs=-1).fit(np_feats)
             centers = kmeans.cluster_centers_
             dis = euclidean_distances(np_feats, centers)
-            _, cluster_center_dict = torch.topk(torch.Tensor(dis), self.n_cluster, largest=False)
+            _, cluster_center_dict = torch.topk(torch.Tensor(dis), self.n_center, largest=False)
             cluster_center_dict = cluster_center_dict.numpy()
             point_labels = kmeans.labels_
             # 顶点在哪一个聚类里
             point_in_which_cluster = [np.where(point_labels == i)[0] for i in range(self.n_cluster)]
             # 采样点的kc个临近聚类团体最为它的超边
+            # 加一个注意力采样
+
             idx = torch.LongTensor([[sample_ids_v2(point_in_which_cluster[cluster_center_dict[point][i]], self.kc)
                                      for i in range(self.n_center)] for point in range(_N)])  # (_N, n_center, kc)
             self.kmeans = idx

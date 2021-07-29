@@ -312,6 +312,21 @@ class Radio:
         with open(path, 'wb') as f:
             plk.dump(content, f)
 
+    def write_point_para(self, data):
+        """
+        将节点参数保存
+        :param data:
+        :return:
+        """
+        with open('point_param.txt', 'a')as f:
+            f.write(str(data.tolist()))
+
+    def get_x_and_y(self):
+        print(self.point.inter_position)
+        x = self.point.inter_position[:,0]
+        y = self.point.inter_position[:,1]
+        return x, y
+
     def parameters(self):
         index_f = np.random.randint(0, len(self.f), size=(self.num, ))
         f = np.array(self.f)[index_f]
@@ -321,8 +336,11 @@ class Radio:
         sp = np.array(self.sp)[index_f]
         sp_idx = self.get_index([0, 5, 10, 15, 20], sp)
         rpt = np.array([self.rpt]*self.num)
-        radio = np.stack((f, bw, rpt, sp), axis=0).transpose()
-
+        x, y = self.get_x_and_y()
+        radio = np.stack((f, bw, rpt, sp, x, y), axis=0).transpose()
+        print(radio.shape)
+        print(radio[0])
+        self.write_point_para(radio)
         rp, pb, success, communication, edge_list = self.receive_power(f, sp, bw)
         # print(rp)
         jmrp, jm_set = self.jammer(bw)

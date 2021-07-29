@@ -39,8 +39,8 @@ def plot_bar():
     x = x - (total_width - width) / 2
     # 设置大小
     plt.figure(figsize=(6, 6))
-    plt.bar(x, data1, width=width, label='ALTH', hatch='//', color='w', edgecolor="k")
-    plt.bar(x + width, data2, width=width, label='Random', hatch='...', color='w', edgecolor="k")
+    plt.bar(x, data1, width=width, label='Random',  color='r', edgecolor="k")
+    plt.bar(x + width, data2, width=width, label='ASHG', color='b', edgecolor="k")
     plt.title('results of metrics')
     plt.xticks([0, 1, 2, 3], name_list)
     # plt.ylim(0, 1.5)
@@ -49,7 +49,7 @@ def plot_bar():
     ax = plt.gca()
     ax.yaxis.set_major_locator(y_major_locator)
     plt.ylim(0, 1)
-    plt.grid(axis="y", linestyle='-.')
+    # plt.grid(axis="y", linestyle='-.')
     plt.show()
 
 

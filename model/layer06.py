@@ -1,18 +1,12 @@
 # !/usr/bin/env python
 # -*- coding:utf-8 -*-
-# @Time      :   2021/4/25 10:45
-# @Author    :   Chasion
-# Description:   采用注意力机制填充采样的cora数据集
-# !/usr/bin/env python
-# -*- coding:utf-8 -*-
 # @Time      :   2021/4/20 22:04
 # @Author    :   Chasion
 # Description:
-# !/usr/bin/env python
-# -*- coding:utf-8 -*-
-# @Time      :   2021/4/10 16:31
-# @Author    :   Chasion
-# Description:   由特征构造超边
+"""
+这个文件是用来给cora数据集使用的，用注意力机制超图构造去测试cora数据集，效果不好
+"""
+
 
 import torch
 from torch import nn
@@ -21,7 +15,6 @@ from communication_model.load_data import load_data
 from utils.layer_utils import cos_dis, sample_ids_v2, sample_ids
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import euclidean_distances
-from Data.load_cora import load_citation_data
 
 
 class Transform(nn.Module):
@@ -92,7 +85,16 @@ class EdgeConv(nn.Module):
         for i in range(n_edges):
             scores.append(self.fc(feats[:, i]))
         scores = torch.softmax(torch.stack(scores, 1), 1)
-        return (scores * feats).sum(1)
+        conv1 = nn.Conv1d(n_edges, n_edges, 1)
+        new_embedding = scores * feats
+        # torch.Size([400, 7, 56])
+        # print('new:', new_embedding.shape)
+        out = conv1(new_embedding).squeeze(1).sum(1)
+        # out torch.Size([400, 1, 56])
+        print('out', out.shape)
+        # print('s', (scores * feats).sum(1).shape)
+        # (scores * feats).sum(1)
+        return out
 
 
 class GraphConvolution(nn.Module):
@@ -109,7 +111,7 @@ class GraphConvolution(nn.Module):
         self.dim_in = kwargs['dim_in']
         self.dim_out = kwargs['dim_out']
         self.fc = nn.Linear(self.dim_in, self.dim_out, bias=True)
-        self.dropout = nn.Dropout(p=0.1)
+        self.dropout = nn.Dropout(p=0.01)
         self.activation = kwargs['activation']
 
     def _region_aggregate(self, feats, edge_dict):
@@ -162,8 +164,12 @@ class Attention(nn.Module):
                 structure_edge.append(arr.tolist().copy())
             elif n_point == 2:
                 # 如果只有两个顶点，那么就对半分
-                arr1 = np.ones(shape=(int(ks/2), )) * i
-                arr2 = np.ones(shape=(int(ks/2), )) * edge_dict[i][1]
+                if ks % 2 == 0:
+                    arr1 = np.ones(shape=(int(ks / 2),)) * i
+                    arr2 = np.ones(shape=(int(ks / 2),)) * edge_dict[i][1]
+                else:
+                    arr1 = np.ones(shape=(int(ks / 2) + 1,)) * i
+                    arr2 = np.ones(shape=(int(ks / 2),)) * edge_dict[i][1]
                 arr = np.hstack((arr1, arr2))
                 structure_edge.append(arr.tolist().copy())
 
@@ -235,7 +241,7 @@ class DHGLayer(nn.Module):
         self.structure = None
 
         self.activation = kwargs['activation']
-        self.dropout = nn.Dropout(p=0.1)
+        self.dropout = nn.Dropout(p=0.015)
         self.dim_out = kwargs['dim_out']
         self.fc = nn.Linear(self.dim_in, self.dim_out, bias=True)
 
@@ -360,12 +366,7 @@ class DHGLayer(nn.Module):
 
 
 if __name__ == '__main__':
-    path = r'D:\graph_code\Interference-model\Data\\cora'
-    cfg = {'activate_dataset': 'cora',
-           'citation_root': path,
-           'add_self_loop': True,
-           }
-    feats, labels, idx_train, idx_val, idx_test, n_category, edge_dict, _ = load_citation_data(cfg)
+    feats, labels, idx_train, idx_val, idx_test, edge_dict = load_data()
     feats = torch.Tensor(feats)
     d = feats.size()[1]
     # a = Attention(dim_in=d)
@@ -382,5 +383,5 @@ if __name__ == '__main__':
         'wu_struct': 5,
         'activation': relu,
     }
-    layer = DHGLayer(dim_in=d, dim_out=7, structured_neighbor=20, nearest_neighbor=10, cluster_neighbor=10, n_cluster=30, n_center=5, wu_knn=0, wu_kmeans=10, wu_struct=5, activation=relu)
+    layer = DHGLayer(dim_in=d, dim_out=2, structured_neighbor=20, nearest_neighbor=10, cluster_neighbor=10, n_cluster=30, n_center=5, wu_knn=0, wu_kmeans=10, wu_struct=5, activation=relu)
     layer.forward(ids=idx_train, feats=feats, edge_dict=edge_dict, epo=15)
